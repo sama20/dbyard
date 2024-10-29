@@ -3,7 +3,7 @@ import { Database, FileJson, Save, Settings, Sun, Moon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import Sidebar from './components/Sidebar';
 import QueryEditor from './components/QueryEditor';
-import ResultsTable from './components/ResultsTable';
+import ResultsPanel from './components/ResultsPanel';
 import Toolbar from './components/Toolbar';
 import QueryTabs from './components/QueryTabs';
 import { useTheme } from './hooks/useTheme';
@@ -15,6 +15,8 @@ function App() {
     { id: nanoid(), title: 'Query 1', query: 'SELECT * FROM users LIMIT 10;' }
   ]);
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
+  const [editorHeight, setEditorHeight] = useState(200);
+  const [activeResultTab, setActiveResultTab] = useState<'results' | 'info'>('results');
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
 
@@ -45,7 +47,7 @@ function App() {
   }, [activeTabId]);
 
   return (
-    <div className={`flex h-screen w-full ${theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'} overflow-hidden`}>
+    <div className={`flex h-screen w-full ${theme === 'dark' ? 'dark bg-gray-900 text-gray-100' : 'bg-white text-gray-900'} overflow-hidden`}>
       <Sidebar />
       <main className="flex-1 flex flex-col min-h-screen">
         <nav className={`h-12 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b flex items-center px-4 shrink-0 justify-between`}>
@@ -86,9 +88,14 @@ function App() {
           <QueryEditor 
             value={activeTab.query} 
             onChange={updateQuery}
+            height={editorHeight}
+            onResize={setEditorHeight}
           />
           <div className="flex-1 min-h-0">
-            <ResultsTable />
+            <ResultsPanel
+              activeTab={activeResultTab}
+              onTabChange={setActiveResultTab}
+            />
           </div>
         </div>
         
