@@ -14,10 +14,66 @@ const createConnectionConfig = ({ host, port, username, password, database }) =>
   user: username,
   password: password || undefined,
   database,
-  connectTimeout: 10000, // 10 second timeout
+  connectTimeout: 10000,
   waitForConnections: true,
 });
 
+const formatFieldType = (field) => {
+  const typeMap = {
+    0x01: 'TINYINT',
+    0x02: 'SMALLINT',
+    0x03: 'INT',
+    0x08: 'BIGINT',
+    0x04: 'FLOAT',
+    0x05: 'DOUBLE',
+    0x0A: 'DATE',
+    0x0B: 'TIME',
+    0x0C: 'DATETIME',
+    0xF6: 'DECIMAL',
+    0xFD: 'VARCHAR',
+    0xFC: 'TEXT',
+    0x07: 'TIMESTAMP',
+  };
+  return typeMap[field.type] || 'UNKNOWN';
+};
+
+app.post('/api/execute', async (req, res) => {
+  const { host, port, username, password, database, query } = req.body;
+  
+  try {
+    const connection = await mysql.createConnection(createConnectionConfig({
+      host, port, username, password, database
+    }));
+
+    const startTime = process.hrtime();
+    const [rows, fields] = await connection.execute(query);
+    const endTime = process.hrtime(startTime);
+    const executionTime = endTime[0] * 1000 + endTime[1] / 1000000;
+
+    await connection.end();
+    
+    const formattedFields = fields?.map(field => ({
+      name: field.name,
+      type: formatFieldType(field),
+      length: field.columnLength,
+      flags: field.flags
+    }));
+
+    res.json({
+      rows: Array.isArray(rows) ? rows : [],
+      fields: formattedFields || [],
+      executionTime,
+      rowsAffected: Array.isArray(rows) ? rows.length : rows?.affectedRows || 0
+    });
+  } catch (error) {
+    console.error('Query execution error:', error);
+    res.status(500).json({ 
+      error: error.message 
+    });
+  }
+});
+
+// Other endpoints remain the same...
 app.post('/api/test-connection', async (req, res) => {
   const { host, port, username, password, database } = req.body;
   

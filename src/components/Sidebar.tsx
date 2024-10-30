@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
 import ConnectionModal from './ConnectionModal';
-import { fetchDatabases, fetchTables } from '../services/mysql';
+import { fetchDatabases, fetchTables, executeQuery } from '../services/mysql';
+import { useConnections } from '../hooks/useConnections';
+import { useSettings } from '../hooks/useSettings';
 import type { Connection, ConnectionData, Database as DatabaseType } from '../types';
 
-export default function Sidebar() {
+interface SidebarProps {
+  onTableClick: (connection: Connection, database: string, table: string) => void;
+}
+
+export default function Sidebar({ onTableClick }: SidebarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [connections, setConnections] = useState<Connection[]>([]);
+  const { connections, setConnections } = useConnections();
+  const { settings } = useSettings();
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
 
   const handleSaveConnection = async (connectionData: ConnectionData) => {
@@ -98,6 +105,10 @@ export default function Sidebar() {
     }
   };
 
+  const handleTableClick = (connection: Connection, dbName: string, table: string) => {
+    onTableClick(connection, dbName, table);
+  };
+
   return (
     <>
       <div className="w-64 bg-gray-800 flex flex-col shrink-0 border-r border-gray-700">
@@ -156,7 +167,11 @@ export default function Sidebar() {
                     {db.isExpanded && (
                       <div className="ml-4">
                         {db.tables.map(table => (
-                          <div key={table} className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded cursor-pointer group">
+                          <div
+                            key={table}
+                            onClick={() => handleTableClick(connection, db.name, table)}
+                            className="flex items-center space-x-2 p-2 hover:bg-gray-700 rounded cursor-pointer group"
+                          >
                             <Table2 size={16} className="text-blue-400" />
                             <span className="text-gray-300 group-hover:text-white">{table}</span>
                           </div>

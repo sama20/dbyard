@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import ResultsTable from './ResultsTable';
 import QueryInfo from './QueryInfo';
 
 interface ResultsPanelProps {
   activeTab: 'results' | 'info';
   onTabChange: (tab: 'results' | 'info') => void;
+  queryResult: any;
 }
 
-export default function ResultsPanel({ activeTab, onTabChange }: ResultsPanelProps) {
+export default function ResultsPanel({ activeTab, onTabChange, queryResult }: ResultsPanelProps) {
   return (
     <div className="h-full flex flex-col bg-gray-900">
       <div className="bg-gray-800 border-b border-gray-700 flex">
@@ -19,7 +20,7 @@ export default function ResultsPanel({ activeTab, onTabChange }: ResultsPanelPro
           }`}
           onClick={() => onTabChange('results')}
         >
-          Results
+          Results {queryResult?.rowsAffected ? `(${queryResult.rowsAffected} rows)` : ''}
         </button>
         <button
           className={`px-4 py-1.5 text-xs ${
@@ -33,7 +34,11 @@ export default function ResultsPanel({ activeTab, onTabChange }: ResultsPanelPro
         </button>
       </div>
       <div className="flex-1 overflow-auto">
-        {activeTab === 'results' ? <ResultsTable /> : <QueryInfo />}
+        {activeTab === 'results' ? (
+          <ResultsTable data={queryResult?.rows} fields={queryResult?.fields} />
+        ) : (
+          <QueryInfo queryResult={queryResult} />
+        )}
       </div>
     </div>
   );
