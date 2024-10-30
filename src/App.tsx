@@ -1,22 +1,28 @@
 import React, { useState, useCallback } from 'react';
-import { Database, FileJson, Save, Settings, Sun, Moon } from 'lucide-react';
+import { Database, FileJson, Save, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import Sidebar from './components/Sidebar';
 import QueryEditor from './components/QueryEditor';
 import ResultsPanel from './components/ResultsPanel';
 import Toolbar from './components/Toolbar';
 import QueryTabs from './components/QueryTabs';
+import SettingsModal from './components/SettingsModal';
 import { useTheme } from './hooks/useTheme';
-import type { QueryTab } from './types';
+import { useSettings } from './hooks/useSettings';
+import { executeQuery } from './services/mysql';
+import type { QueryTab, Connection } from './types';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
+  const { settings, setSettings } = useSettings();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tabs, setTabs] = useState<QueryTab[]>([
     { id: nanoid(), title: 'Query 1', query: 'SELECT * FROM users LIMIT 10;' }
   ]);
   const [activeTabId, setActiveTabId] = useState(tabs[0].id);
   const [editorHeight, setEditorHeight] = useState(200);
   const [activeResultTab, setActiveResultTab] = useState<'results' | 'info'>('results');
+  const [queryResult, setQueryResult] = useState<any>(null);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
 
@@ -46,9 +52,28 @@ function App() {
     });
   }, [activeTabId]);
 
+  const handleTableClick = async (connection: Connection, database: string, table: string) => {
+    const query = `SELECT * FROM ${table} LIMIT ${settings.defaultLimit};`;
+    const newTab: QueryTab = {
+      id: nanoid(),
+      title: `${table}`,
+      query
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+
+    try {
+      const result = await executeQuery({ ...connection, database }, query);
+      setQueryResult(result);
+      setActiveResultTab('results');
+    } catch (error) {
+      console.error('Failed to fetch table data:', error);
+    }
+  };
+
   return (
     <div className={`flex h-screen w-full ${theme === 'dark' ? 'dark bg-gray-900 text-gray-100' : 'bg-white text-gray-900'} overflow-hidden`}>
-      <Sidebar />
+      <Sidebar onTableClick={handleTableClick} />
       <main className="flex-1 flex flex-col min-h-screen">
         <nav className={`h-12 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b flex items-center px-4 shrink-0 justify-between`}>
           <div className="flex space-x-4">
@@ -62,8 +87,11 @@ function App() {
             <button className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors">
               <Save size={18} />
             </button>
-            <button className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors">
-              <Settings size={18} />
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+            >
+              <SettingsIcon size={18} />
             </button>
           </div>
           <button
@@ -90,11 +118,13 @@ function App() {
             onChange={updateQuery}
             height={editorHeight}
             onResize={setEditorHeight}
+            settings={settings}
           />
           <div className="flex-1 min-h-0">
             <ResultsPanel
               activeTab={activeResultTab}
               onTabChange={setActiveResultTab}
+              queryResult={queryResult}
             />
           </div>
         </div>
@@ -103,6 +133,13 @@ function App() {
           <span>Connected: localhost:5432</span>
         </footer>
       </main>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSave={setSettings}
+      />
     </div>
   );
 }

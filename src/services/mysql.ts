@@ -44,3 +44,22 @@ export async function fetchTables(config: ConnectionData): Promise<string[]> {
   
   return await response.json();
 }
+
+export async function executeQuery(config: ConnectionData, query: string): Promise<{
+  rows: any[];
+  fields: any[];
+  executionTime: number;
+  rowsAffected: number;
+}> {
+  const response = await fetch(`${API_URL}/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...config, query })
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to execute query');
+  }
+
+  return await response.json();
+}

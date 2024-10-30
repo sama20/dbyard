@@ -1,33 +1,38 @@
 import React from 'react';
 
-export default function ResultsTable() {
-  const mockData = [
-    { id: 1, username: 'john_doe', email: 'john@example.com', created_at: '2024-03-15' },
-    { id: 2, username: 'jane_smith', email: 'jane@example.com', created_at: '2024-03-14' },
-  ];
+interface ResultsTableProps {
+  data?: any[];
+  fields?: any[];
+}
+
+export default function ResultsTable({ data, fields }: ResultsTableProps) {
+  if (!data || !fields || data.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center text-gray-400">
+        No results to display
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-gray-900">
-      <div className="bg-gray-800 text-xs px-4 py-1.5 border-b border-gray-700 text-gray-400">
-        Results
-      </div>
       <div className="p-4 flex-1 overflow-auto">
         <table className="w-full text-sm">
           <thead>
             <tr>
-              {Object.keys(mockData[0]).map((key) => (
-                <th key={key} className="text-left p-2 border-b border-gray-700 bg-gray-800 text-gray-300 font-medium sticky top-0">
-                  {key}
+              {fields.map((field, index) => (
+                <th key={index} className="text-left p-2 border-b border-gray-700 bg-gray-800 text-gray-300 font-medium sticky top-0">
+                  {field.name}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {mockData.map((row, i) => (
+            {data.map((row, i) => (
               <tr key={i} className="hover:bg-gray-800">
-                {Object.values(row).map((value, j) => (
+                {fields.map((field, j) => (
                   <td key={j} className="p-2 border-b border-gray-700 text-gray-300">
-                    {value}
+                    {row[field.name]?.toString() ?? 'NULL'}
                   </td>
                 ))}
               </tr>
