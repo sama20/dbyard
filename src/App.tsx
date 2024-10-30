@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Database, FileJson, Save, Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
+import { Database, FileJson, Save, Settings as SettingsIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import Sidebar from './components/Sidebar';
 import QueryEditor from './components/QueryEditor';
@@ -7,13 +7,11 @@ import ResultsPanel from './components/ResultsPanel';
 import Toolbar from './components/Toolbar';
 import QueryTabs from './components/QueryTabs';
 import SettingsModal from './components/SettingsModal';
-import { useTheme } from './hooks/useTheme';
 import { useSettings } from './hooks/useSettings';
 import { executeQuery } from './services/mysql';
 import type { QueryTab, Connection } from './types';
 
 function App() {
-  const { theme, toggleTheme } = useTheme();
   const { settings, setSettings } = useSettings();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tabs, setTabs] = useState<QueryTab[]>([
@@ -72,35 +70,28 @@ function App() {
   };
 
   return (
-    <div className={`flex h-screen w-full ${theme === 'dark' ? 'dark bg-gray-900 text-gray-100' : 'bg-white text-gray-900'} overflow-hidden`}>
+    <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
       <Sidebar onTableClick={handleTableClick} />
       <main className="flex-1 flex flex-col min-h-screen">
-        <nav className={`h-12 ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'} border-b flex items-center px-4 shrink-0 justify-between`}>
-          <div className="flex space-x-4">
+        <nav className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-3 shrink-0 justify-between">
+          <div className="flex space-x-3">
             <button 
               onClick={createNewTab}
-              className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+              className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
               title="New Query"
             >
-              <FileJson size={18} />
+              <FileJson size={16} />
             </button>
-            <button className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors">
-              <Save size={18} />
+            <button className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors">
+              <Save size={16} />
             </button>
             <button 
               onClick={() => setIsSettingsOpen(true)}
-              className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+              className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
             >
-              <SettingsIcon size={18} />
+              <SettingsIcon size={16} />
             </button>
           </div>
-          <button
-            onClick={toggleTheme}
-            className="p-1.5 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
-            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
         </nav>
         
         <QueryTabs
@@ -129,7 +120,7 @@ function App() {
           </div>
         </div>
         
-        <footer className={`h-6 bg-blue-600 text-xs flex items-center px-4 shrink-0 ${theme === 'dark' ? 'text-white' : 'text-white'}`}>
+        <footer className="h-5 bg-blue-600 text-xs flex items-center px-3 shrink-0 text-white">
           <span>Connected: localhost:5432</span>
         </footer>
       </main>
