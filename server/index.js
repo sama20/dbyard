@@ -52,28 +52,36 @@ app.post('/api/execute', async (req, res) => {
 
     await connection.end();
     
+    // Convert RowDataPacket to plain objects
+    const plainRows = Array.isArray(rows) 
+      ? rows.map(row => Object.assign({}, row))
+      : [];
+
     const formattedFields = fields?.map(field => ({
       name: field.name,
       type: formatFieldType(field),
       length: field.columnLength,
       flags: field.flags
-    }));
+    })) || [];
 
     res.json({
-      rows: Array.isArray(rows) ? rows : [],
-      fields: formattedFields || [],
+      rows: plainRows,
+      fields: formattedFields,
       executionTime,
       rowsAffected: Array.isArray(rows) ? rows.length : rows?.affectedRows || 0
     });
   } catch (error) {
     console.error('Query execution error:', error);
     res.status(500).json({ 
-      error: error.message 
+      error: error.message,
+      rows: [],
+      fields: [],
+      executionTime: 0,
+      rowsAffected: 0
     });
   }
 });
 
-// Other endpoints remain the same...
 app.post('/api/test-connection', async (req, res) => {
   const { host, port, username, password, database } = req.body;
   
