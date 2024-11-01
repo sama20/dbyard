@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Database, FileJson, Save, Settings as SettingsIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
+import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
 import QueryEditor from './components/QueryEditor';
 import ResultsPanel from './components/ResultsPanel';
@@ -26,32 +27,6 @@ function App() {
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
   const activeConnection = connections.find(c => c.id === activeTab.connectionId);
-
-  const createNewTab = useCallback(() => {
-    const newTab: QueryTab = {
-      id: nanoid(),
-      title: `Query ${tabs.length + 1}`,
-      query: ''
-    };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
-  }, [tabs.length]);
-
-  const updateQuery = useCallback((query: string) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId ? { ...tab, query } : tab
-    ));
-  }, [activeTabId]);
-
-  const closeTab = useCallback((tabId: string) => {
-    setTabs(prev => {
-      const newTabs = prev.filter(tab => tab.id !== tabId);
-      if (activeTabId === tabId && newTabs.length > 0) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
-      }
-      return newTabs;
-    });
-  }, [activeTabId]);
 
   const updateTabConnection = useCallback((connectionId: string) => {
     setTabs(prev => prev.map(tab => 
@@ -86,9 +61,54 @@ function App() {
     }
   }, [settings.defaultLimit]);
 
+  const createNewTab = useCallback(() => {
+    const newTab: QueryTab = {
+      id: nanoid(),
+      title: `Query ${tabs.length + 1}`,
+      query: ''
+    };
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+  }, [tabs.length]);
+
+  const updateQuery = useCallback((query: string) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId ? { ...tab, query } : tab
+    ));
+  }, [activeTabId]);
+
+  const closeTab = useCallback((tabId: string) => {
+    setTabs(prev => {
+      const newTabs = prev.filter(tab => tab.id !== tabId);
+      if (activeTabId === tabId && newTabs.length > 0) {
+        setActiveTabId(newTabs[newTabs.length - 1].id);
+      }
+      return newTabs;
+    });
+  }, [activeTabId]);
+
+  const handleExecuteQuery = async () => {
+    if (!activeConnection || !activeTab.database) return;
+
+    try {
+      const result = await executeQuery(
+        { ...activeConnection, database: activeTab.database },
+        activeTab.query
+      );
+      setQueryResult(result);
+      setActiveResultTab('results');
+    } catch (error) {
+      console.error('Query execution error:', error);
+      setQueryResult({ error: error instanceof Error ? error.message : 'Query execution failed' });
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
-      <Sidebar onTableClick={handleTableClick} />
+      <Sidebar 
+        onTableClick={handleTableClick}
+        connections={connections}
+      />
       <main className="flex-1 flex flex-col min-h-screen overflow-auto">
         <nav className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-3 shrink-0 justify-between">
           <div className="flex space-x-3">
@@ -116,7 +136,6 @@ function App() {
           activeTabId={activeTabId}
           onTabSelect={setActiveTabId}
           onTabClose={closeTab}
-          connections={connections}
         />
         
         <Toolbar 
@@ -124,6 +143,7 @@ function App() {
           activeTab={activeTab}
           onConnectionChange={updateTabConnection}
           onDatabaseChange={updateTabDatabase}
+          onExecuteQuery={handleExecuteQuery}
         />
         
         <div className="flex-1 flex flex-col min-h-0">
@@ -134,6 +154,7 @@ function App() {
             onResize={setEditorHeight}
             settings={settings}
             backgroundColor={activeConnection?.color}
+            activeConnection={activeConnection}
           />
           <div className="flex-1 min-h-0">
             <ResultsPanel
@@ -156,6 +177,8 @@ function App() {
         settings={settings}
         onSave={setSettings}
       />
+      
+      <Toaster position="top-right" />
     </div>
   );
 }

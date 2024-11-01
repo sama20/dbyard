@@ -6,11 +6,12 @@ interface ResultsPanelProps {
   activeTab: 'results' | 'info';
   onTabChange: (tab: 'results' | 'info') => void;
   queryResult: any;
+  backgroundColor?: string | null;
 }
 
-export default function ResultsPanel({ activeTab, onTabChange, queryResult }: ResultsPanelProps) {
+export default function ResultsPanel({ activeTab, onTabChange, queryResult, backgroundColor }: ResultsPanelProps) {
   return (
-    <div className="h-full flex flex-col bg-gray-900">
+    <div className="h-full flex flex-col bg-gray-900" style={{ backgroundColor: backgroundColor ? `${backgroundColor}05` : undefined }}>
       <div className="bg-gray-800 border-b border-gray-700 flex">
         <button
           className={`px-4 py-1.5 text-xs ${
