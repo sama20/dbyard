@@ -63,8 +63,8 @@ export default function QueryTabs({ tabs, activeTabId, onTabSelect, onTabClose }
       
 
 
-      <div className="relative rounded-xl overflow-auto">
-        <div className="max-w-screen-md mx-auto  dark:bg-slate-800 dark:highlight-white/5">
+      <div className="relative rounded-xl overflow-x-auto overflow-y-hidden">
+        <div className="mx-auto  dark:bg-slate-800 dark:highlight-white/5">
         <div
         ref={tabsContainerRef}
         onScroll={handleScroll}
