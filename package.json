@@ -10,6 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.15.0",
+    "@codemirror/lang-sql": "^6.5.5",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.24.1",
+    "codemirror": "^6.0.1",
     "cors": "^2.8.5",
     "express": "^4.18.3",
     "lucide-react": "^0.344.0",

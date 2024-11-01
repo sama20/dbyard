@@ -1,4 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { EditorView, basicSetup } from 'codemirror';
+import { sql } from '@codemirror/lang-sql';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { autocompletion } from '@codemirror/autocomplete';
+import { EditorState } from '@codemirror/state';
+import { ViewUpdate } from '@codemirror/view';
+import { Connection } from '../types';
 
 interface QueryEditorProps {
   value: string;
@@ -7,9 +14,99 @@ interface QueryEditorProps {
   onResize: (height: number) => void;
   settings: any;
   backgroundColor?: string | null;
+  activeConnection?: Connection;
 }
 
-export default function QueryEditor({ value, onChange, height, onResize, settings, backgroundColor }: QueryEditorProps) {
+export default function QueryEditor({ 
+  value, 
+  onChange, 
+  height, 
+  onResize, 
+  settings, 
+  backgroundColor,
+  activeConnection 
+}: QueryEditorProps) {
+  const editorRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView>();
+
+  useEffect(() => {
+    if (!editorRef.current || viewRef.current) return;
+
+    // Get table and column names from active connection
+    const tables = activeConnection?.databases?.flatMap(db => db.tables) || [];
+    const tableCompletions = tables.map(table => ({
+      label: table,
+      type: 'table'
+    }));
+
+    const sqlCompletions = (context: any) => {
+      let word = context.matchBefore(/\w*/);
+      if (!word) return null;
+
+      return {
+        from: word.from,
+        options: [
+          ...tableCompletions,
+          { label: "SELECT", type: "keyword" },
+          { label: "FROM", type: "keyword" },
+          { label: "WHERE", type: "keyword" },
+          { label: "INSERT", type: "keyword" },
+          { label: "UPDATE", type: "keyword" },
+          { label: "DELETE", type: "keyword" },
+          { label: "JOIN", type: "keyword" },
+          { label: "GROUP BY", type: "keyword" },
+          { label: "ORDER BY", type: "keyword" },
+          { label: "LIMIT", type: "keyword" }
+        ]
+      };
+    };
+
+    const state = EditorState.create({
+      doc: value,
+      extensions: [
+        basicSetup,
+        sql(),
+        oneDark,
+        autocompletion({ override: [sqlCompletions] }),
+        EditorView.updateListener.of((update: ViewUpdate) => {
+          if (update.docChanged) {
+            onChange(update.state.doc.toString());
+          }
+        }),
+        EditorView.theme({
+          '&': { height: '100%' },
+          '.cm-scroller': { overflow: 'auto' },
+          '.cm-content': { fontSize: `${settings.fontSize}px` },
+          '&.cm-editor.cm-focused': { outline: 'none' }
+        })
+      ]
+    });
+
+    const view = new EditorView({
+      state,
+      parent: editorRef.current
+    });
+
+    viewRef.current = view;
+
+    return () => {
+      view.destroy();
+      viewRef.current = undefined;
+    };
+  }, [activeConnection]);
+
+  useEffect(() => {
+    if (viewRef.current && value !== viewRef.current.state.doc.toString()) {
+      viewRef.current.dispatch({
+        changes: {
+          from: 0,
+          to: viewRef.current.state.doc.length,
+          insert: value
+        }
+      });
+    }
+  }, [value]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -34,13 +131,10 @@ export default function QueryEditor({ value, onChange, height, onResize, setting
       <div className="bg-gray-800 text-xs px-4 py-1.5 border-b border-gray-700 text-gray-400">
         Query Editor
       </div>
-      <textarea
-        className="w-full flex-1 bg-gray-900 text-gray-100 p-4 resize-none focus:outline-none font-mono text-sm"
+      <div 
+        ref={editorRef}
+        className="w-full flex-1 overflow-auto"
         style={{ backgroundColor: backgroundColor ? `${backgroundColor}10` : undefined }}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-        placeholder="Enter your SQL query here..."
         onContextMenu={(e) => e.preventDefault()}
       />
       <div 
