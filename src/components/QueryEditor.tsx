@@ -5,9 +5,11 @@ interface QueryEditorProps {
   onChange: (value: string) => void;
   height: number;
   onResize: (height: number) => void;
+  settings: any;
+  backgroundColor?: string | null;
 }
 
-export default function QueryEditor({ value, onChange, height, onResize }: QueryEditorProps) {
+export default function QueryEditor({ value, onChange, height, onResize, settings, backgroundColor }: QueryEditorProps) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const startY = e.clientY;
@@ -34,10 +36,12 @@ export default function QueryEditor({ value, onChange, height, onResize }: Query
       </div>
       <textarea
         className="w-full flex-1 bg-gray-900 text-gray-100 p-4 resize-none focus:outline-none font-mono text-sm"
+        style={{ backgroundColor: backgroundColor ? `${backgroundColor}10` : undefined }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         spellCheck={false}
         placeholder="Enter your SQL query here..."
+        onContextMenu={(e) => e.preventDefault()}
       />
       <div 
         className="h-1 bg-gray-800 cursor-row-resize hover:bg-blue-500 transition-colors"
