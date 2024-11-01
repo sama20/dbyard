@@ -24,6 +24,7 @@ const formatFieldType = (field) => {
     0x02: 'SMALLINT',
     0x03: 'INT',
     0x08: 'BIGINT',
+    0x09: 'MEDIUMINT', // Hypothetical identifier
     0x04: 'FLOAT',
     0x05: 'DOUBLE',
     0x0A: 'DATE',
@@ -33,9 +34,19 @@ const formatFieldType = (field) => {
     0xFD: 'VARCHAR',
     0xFC: 'TEXT',
     0x07: 'TIMESTAMP',
+    0xF7: 'CHAR',
+    0xF9: 'BLOB',
+    0xFA: 'VARBINARY',
+    0xFB: 'BINARY',
+    0xFE: 'ENUM',
+    0xFF: 'SET',
+    0x10: 'BIT',
+    0x11: 'BOOLEAN', // Often represented as TINYINT(1)
+    0xF5: 'JSON'
   };
   return typeMap[field.type] || 'UNKNOWN';
 };
+
 
 app.post('/api/execute', async (req, res) => {
   const { host, port, username, password, database, query } = req.body;
