@@ -72,7 +72,7 @@ function App() {
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
       <Sidebar onTableClick={handleTableClick} />
-      <main className="flex-1 flex flex-col min-h-screen">
+      <main className="flex-1 flex flex-col min-h-screen overflow-auto">
         <nav className="h-10 bg-gray-800 border-b border-gray-700 flex items-center px-3 shrink-0 justify-between">
           <div className="flex space-x-3">
             <button 
@@ -111,7 +111,7 @@ function App() {
             onResize={setEditorHeight}
             settings={settings}
           />
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 ">
             <ResultsPanel
               activeTab={activeResultTab}
               onTabChange={setActiveResultTab}
