@@ -8,11 +8,13 @@ import Toolbar from './components/Toolbar';
 import QueryTabs from './components/QueryTabs';
 import SettingsModal from './components/SettingsModal';
 import { useSettings } from './hooks/useSettings';
+import { useConnections } from './hooks/useConnections';
 import { executeQuery } from './services/mysql';
 import type { QueryTab, Connection } from './types';
 
 function App() {
   const { settings, setSettings } = useSettings();
+  const { connections } = useConnections();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tabs, setTabs] = useState<QueryTab[]>([
     { id: nanoid(), title: 'Query 1', query: 'SELECT * FROM users LIMIT 10;' }
@@ -23,6 +25,7 @@ function App() {
   const [queryResult, setQueryResult] = useState<any>(null);
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
+  const activeConnection = connections.find(c => c.id === activeTab.connectionId);
 
   const createNewTab = useCallback(() => {
     const newTab: QueryTab = {
@@ -50,12 +53,26 @@ function App() {
     });
   }, [activeTabId]);
 
-  const handleTableClick = async (connection: Connection, database: string, table: string) => {
+  const updateTabConnection = useCallback((connectionId: string) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId ? { ...tab, connectionId, database: undefined } : tab
+    ));
+  }, [activeTabId]);
+
+  const updateTabDatabase = useCallback((database: string) => {
+    setTabs(prev => prev.map(tab => 
+      tab.id === activeTabId ? { ...tab, database } : tab
+    ));
+  }, [activeTabId]);
+
+  const handleTableClick = useCallback(async (connection: Connection, database: string, table: string) => {
     const query = `SELECT * FROM ${table} LIMIT ${settings.defaultLimit};`;
     const newTab: QueryTab = {
       id: nanoid(),
-      title: `${table}`,
-      query
+      title: table,
+      query,
+      connectionId: connection.id,
+      database
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
@@ -67,7 +84,7 @@ function App() {
     } catch (error) {
       console.error('Failed to fetch table data:', error);
     }
-  };
+  }, [settings.defaultLimit]);
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
@@ -99,9 +116,15 @@ function App() {
           activeTabId={activeTabId}
           onTabSelect={setActiveTabId}
           onTabClose={closeTab}
+          connections={connections}
         />
         
-        <Toolbar />
+        <Toolbar 
+          connections={connections}
+          activeTab={activeTab}
+          onConnectionChange={updateTabConnection}
+          onDatabaseChange={updateTabDatabase}
+        />
         
         <div className="flex-1 flex flex-col min-h-0">
           <QueryEditor 
@@ -110,12 +133,14 @@ function App() {
             height={editorHeight}
             onResize={setEditorHeight}
             settings={settings}
+            backgroundColor={activeConnection?.color}
           />
-          <div className="flex-1 min-h-0 ">
+          <div className="flex-1 min-h-0">
             <ResultsPanel
               activeTab={activeResultTab}
               onTabChange={setActiveResultTab}
               queryResult={queryResult}
+              backgroundColor={activeConnection?.color}
             />
           </div>
         </div>

@@ -13,5 +13,11 @@ export function useConnections() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(connections));
   }, [connections]);
 
-  return { connections, setConnections };
+  const updateConnectionColor = (connectionId: string, color: string | null) => {
+    setConnections(prev => prev.map(conn => 
+      conn.id === connectionId ? { ...conn, color } : conn
+    ));
+  };
+
+  return { connections, setConnections, updateConnectionColor };
 }
