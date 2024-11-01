@@ -174,7 +174,7 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
                 <div
                   onContextMenu={(e) => handleContextMenu(e, connection.id)}
                   onClick={() => toggleConnection(connection.id)}
-                  className="flex items-center space-x-2 p-2 hover:bg-gray-700/50 rounded cursor-pointer group"
+                  className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
                 >
                   {loading[connection.id] ? (
                     <Loader2 size={16} className="text-blue-400 animate-spin" />
@@ -191,7 +191,7 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
                   <div key={db.name} className="ml-4">
                     <div
                       onClick={() => toggleDatabase(connection.id, db.name)}
-                      className="flex items-center space-x-2 p-2 hover:bg-gray-700/50 rounded cursor-pointer group"
+                      className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
                     >
                       {loading[`${connection.id}-${db.name}`] ? (
                         <Loader2 size={16} className="text-yellow-500 animate-spin" />
@@ -200,20 +200,20 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
                       ) : (
                         <ChevronRight size={16} className="text-gray-400" />
                       )}
-                      <FolderOpen size={16} className="text-yellow-500" />
-                      <span className="text-gray-300 group-hover:text-white">{db.name}</span>
+                      <FolderOpen size={16} className="text-yellow-600" />
+                      <span className="text-sm text-gray-300 group-hover:text-white">{db.name}</span>
                     </div>
                     
                     {db.isExpanded && (
-                      <div className="ml-4">
+                      <div className="ml-8">
                         {db.tables.map(table => (
                           <div
                             key={table}
                             onClick={() => onTableClick(connection, db.name, table)}
-                            className="flex items-center space-x-2 p-2 hover:bg-gray-700/50 rounded cursor-pointer group"
+                            className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
                           >
                             <Table2 size={16} className="text-blue-400" />
-                            <span className="text-gray-300 group-hover:text-white">{table}</span>
+                            <span className="text-xs text-gray-300 group-hover:text-white">{table}</span>
                           </div>
                         ))}
                       </div>
