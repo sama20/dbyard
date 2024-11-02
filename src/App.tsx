@@ -24,6 +24,7 @@ function App() {
   const [editorHeight, setEditorHeight] = useState(200);
   const [activeResultTab, setActiveResultTab] = useState<'results' | 'info'>('results');
   const [queryResult, setQueryResult] = useState<any>(null);
+  const [queryError, setQueryError] = useState<string | undefined>();
 
   const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
   const activeConnection = connections.find(c => c.id === activeTab.connectionId);
@@ -51,13 +52,14 @@ function App() {
     };
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
+    setQueryError(undefined);
 
     try {
       const result = await executeQuery({ ...connection, database }, query);
       setQueryResult(result);
       setActiveResultTab('results');
     } catch (error) {
-      console.error('Failed to fetch table data:', error);
+      setQueryError(error instanceof Error ? error.message : 'Failed to fetch table data');
     }
   }, [settings.defaultLimit]);
 
@@ -89,6 +91,7 @@ function App() {
 
   const handleExecuteQuery = async () => {
     if (!activeConnection || !activeTab.database) return;
+    setQueryError(undefined);
 
     try {
       const result = await executeQuery(
@@ -98,8 +101,48 @@ function App() {
       setQueryResult(result);
       setActiveResultTab('results');
     } catch (error) {
-      console.error('Query execution error:', error);
-      setQueryResult({ error: error instanceof Error ? error.message : 'Query execution failed' });
+      setQueryError(error instanceof Error ? error.message : 'Query execution failed');
+      setQueryResult(null);
+    }
+  };
+
+  const handleUpdateData = async (changes: any[]) => {
+    if (!activeConnection || !activeTab.database || !queryResult?.fields) return;
+
+    // Extract table name from the query
+    const tableMatch = activeTab.query.match(/FROM\s+`?(\w+)`?/i);
+    if (!tableMatch) {
+      setQueryError('Could not determine table name from query');
+      return;
+    }
+
+    const tableName = tableMatch[1];
+    const primaryKeyField = queryResult.fields.find((f: any) => f.flags & 2); // Check for primary key flag
+
+    if (!primaryKeyField) {
+      setQueryError('No primary key found in the result set');
+      return;
+    }
+
+    try {
+      for (const row of changes) {
+        const setClauses = Object.keys(row)
+          .filter(key => key !== primaryKeyField.name) // Exclude primary key from SET clause
+          .map(key => `${key} = ${row[key] === null ? 'NULL' : `'${row[key]}'`}`)
+          .join(', ');
+
+        const updateQuery = `UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKeyField.name} = '${row[primaryKeyField.name]}'`;
+        await executeQuery(
+          { ...activeConnection, database: activeTab.database },
+          updateQuery
+        );
+      }
+
+      // Refresh the data
+      handleExecuteQuery();
+    } catch (error) {
+      console.error('Update error:', error);
+      setQueryError(error instanceof Error ? error.message : 'Failed to update data');
     }
   };
 
@@ -161,7 +204,9 @@ function App() {
               activeTab={activeResultTab}
               onTabChange={setActiveResultTab}
               queryResult={queryResult}
+              error={queryError}
               backgroundColor={activeConnection?.color}
+              onUpdateData={handleUpdateData}
             />
           </div>
         </div>
