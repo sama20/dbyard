@@ -9,20 +9,37 @@ interface ConnectionModalProps {
   onSave: (connection: ConnectionData) => void;
 }
 
+interface SSHConfig {
+  host: string;
+  port: string;
+  username: string;
+  password?: string;
+  privateKey?: string;
+}
+
 export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionModalProps) {
-  const [formData, setFormData] = useState<ConnectionData>({
+  const [formData, setFormData] = useState<ConnectionData & { useSSH: boolean; sshConfig?: SSHConfig }>({
     name: '',
     host: '',
     port: '3306',
     username: '',
     password: '',
-    database: ''
+    database: '',
+    useSSH: false,
+    sshConfig: {
+      host: '',
+      port: '22',
+      username: '',
+      password: '',
+      privateKey: ''
+    }
   });
 
   const [testStatus, setTestStatus] = useState<{
     tested: boolean;
     success: boolean;
     message: string;
+    type?: 'ssh' | 'mysql';
   }>({
     tested: false,
     success: false,
@@ -32,32 +49,80 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Reset test status when form data changes
     setTestStatus({ tested: false, success: false, message: '' });
   }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (testStatus.tested && testStatus.success) {
-      onSave(formData);
+      const connectionData: ConnectionData = {
+        name: formData.name,
+        host: formData.host,
+        port: formData.port,
+        username: formData.username,
+        password: formData.password,
+        database: formData.database
+      };
+      if (formData.useSSH) {
+        connectionData.sshConfig = formData.sshConfig;
+      }
+      onSave(connectionData);
     }
   };
 
   const handleTest = async () => {
     setIsLoading(true);
-    const result = await testConnection(formData);
-    setTestStatus({
-      tested: true,
-      success: result.success,
-      message: result.message
-    });
+    try {
+      if (formData.useSSH) {
+        // First test SSH connection
+        const sshResult = await testSSHConnection(formData.sshConfig!);
+        if (!sshResult.success) {
+          setTestStatus({
+            tested: true,
+            success: false,
+            message: `SSH Connection Failed: ${sshResult.message}`,
+            type: 'ssh'
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Then test MySQL connection
+      const result = await testConnection(formData);
+      setTestStatus({
+        tested: true,
+        success: result.success,
+        message: result.message,
+        type: 'mysql'
+      });
+    } catch (error) {
+      setTestStatus({
+        tested: true,
+        success: false,
+        message: error instanceof Error ? error.message : 'Connection failed',
+        type: 'mysql'
+      });
+    }
     setIsLoading(false);
+  };
+
+  const getStatusColor = () => {
+    if (!testStatus.tested) return '';
+    if (!testStatus.success) return 'bg-red-900/50 text-red-400';
+    return 'bg-green-900/50 text-green-400';
   };
 
   if (!isOpen) return null;
 
   const isFormValid = formData.name && formData.host && formData.port && 
-                     formData.username && formData.database;
+                     formData.username && formData.database && 
+                     (!formData.useSSH || (
+                       formData.sshConfig?.host && 
+                       formData.sshConfig?.port && 
+                       formData.sshConfig?.username && 
+                       (formData.sshConfig?.password || formData.sshConfig?.privateKey)
+                     ));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -76,7 +141,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="text"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="My Database"
               required
             />
@@ -89,7 +154,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                 type="text"
                 value={formData.host}
                 onChange={e => setFormData(prev => ({ ...prev, host: e.target.value }))}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="localhost"
                 required
               />
@@ -100,7 +165,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                 type="text"
                 value={formData.port}
                 onChange={e => setFormData(prev => ({ ...prev, port: e.target.value }))}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="3306"
                 required
               />
@@ -113,7 +178,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="text"
               value={formData.username}
               onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
@@ -126,7 +191,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="password"
               value={formData.password}
               onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
@@ -136,15 +201,103 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="text"
               value={formData.database}
               onChange={e => setFormData(prev => ({ ...prev, database: e.target.value }))}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
+          <div className="space-y-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={formData.useSSH}
+                onChange={e => setFormData(prev => ({ ...prev, useSSH: e.target.checked }))}
+                className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700"
+              />
+              <span className="text-sm font-medium text-gray-300">Use SSH Tunnel</span>
+            </label>
+
+            {formData.useSSH && (
+              <div className="space-y-4 border-l-2 border-gray-700 pl-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">SSH Host</label>
+                    <input
+                      type="text"
+                      value={formData.sshConfig?.host}
+                      onChange={e => setFormData(prev => ({
+                        ...prev,
+                        sshConfig: { ...prev.sshConfig!, host: e.target.value }
+                      }))}
+                      className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={formData.useSSH}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">SSH Port</label>
+                    <input
+                      type="text"
+                      value={formData.sshConfig?.port}
+                      onChange={e => setFormData(prev => ({
+                        ...prev,
+                        sshConfig: { ...prev.sshConfig!, port: e.target.value }
+                      }))}
+                      className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={formData.useSSH}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">SSH Username</label>
+                  <input
+                    type="text"
+                    value={formData.sshConfig?.username}
+                    onChange={e => setFormData(prev => ({
+                      ...prev,
+                      sshConfig: { ...prev.sshConfig!, username: e.target.value }
+                    }))}
+                    className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required={formData.useSSH}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    SSH Password <span className="text-gray-400">(or use Private Key)</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.sshConfig?.password}
+                    onChange={e => setFormData(prev => ({
+                      ...prev,
+                      sshConfig: { ...prev.sshConfig!, password: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Private Key <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <textarea
+                    value={formData.sshConfig?.privateKey}
+                    onChange={e => setFormData(prev => ({
+                      ...prev,
+                      sshConfig: { ...prev.sshConfig!, privateKey: e.target.value }
+                    }))}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
+                    placeholder="Paste your private key here"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {testStatus.tested && (
-            <div className={`p-3 rounded-md ${
-              testStatus.success ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
-            }`}>
+            <div className={`p-3 rounded-md ${getStatusColor()}`}>
+              {testStatus.type && <strong className="block mb-1">{testStatus.type.toUpperCase()} Connection:</strong>}
               {testStatus.message}
             </div>
           )}

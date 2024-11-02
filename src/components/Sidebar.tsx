@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, Palette } from 'lucide-react';
+import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, Palette, ChevronLeftCircle, ChevronRightCircle } from 'lucide-react';
 import ConnectionModal from './ConnectionModal';
 import ColorPicker from './ColorPicker';
 import { fetchDatabases, fetchTables } from '../services/mysql';
@@ -25,6 +25,7 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
   const { connections, setConnections } = useConnections();
   const { settings } = useSettings();
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [colorPickerState, setColorPickerState] = useState<{
     isOpen: boolean;
     connectionId: string | null;
@@ -146,84 +147,99 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
 
   return (
     <>
-      <div className="w-64 bg-gray-800 flex flex-col shrink-0 border-r border-gray-700">
-        <div className="p-4 border-b border-gray-700">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Database size={20} className="text-blue-400" />
-              <span className="font-semibold text-gray-100">Connections</span>
-            </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="p-1 hover:bg-gray-700 rounded-md transition-colors"
-              title="Add Connection"
-            >
-              <Plus size={16} className="text-gray-300 hover:text-white" />
-            </button>
-          </div>
+      <div className={`${isCollapsed ? 'w-12' : 'w-64'} bg-gray-800 flex flex-col shrink-0 border-r border-gray-700 transition-all duration-300`}>
+        <div className="p-2 border-b border-gray-700 flex items-center justify-between">
+          {!isCollapsed && (
+            <>
+              <div className="flex items-center space-x-2">
+                <Database size={18} className="text-blue-400" />
+                <span className="font-medium text-sm text-gray-100">Connections</span>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="p-1 hover:bg-gray-700 rounded-md transition-colors"
+                title="Add Connection"
+              >
+                <Plus size={14} className="text-gray-300 hover:text-white" />
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1 hover:bg-gray-700 rounded-md transition-colors ml-auto"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? (
+              <ChevronRightCircle size={14} className="text-gray-300 hover:text-white" />
+            ) : (
+              <ChevronLeftCircle size={14} className="text-gray-300 hover:text-white" />
+            )}
+          </button>
         </div>
         
-        <div className="flex-1 overflow-auto">
-          <div className="p-2">
-            {connections.map(connection => (
-              <div 
-                key={connection.id} 
-                className="mb-2"
-                style={{ backgroundColor: connection.color }}
-              >
-                <div
-                  onContextMenu={(e) => handleContextMenu(e, connection.id)}
-                  onClick={() => toggleConnection(connection.id)}
-                  className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
+        {!isCollapsed && (
+          <div className="flex-1 overflow-auto">
+            <div className="p-2">
+              {connections.map(connection => (
+                <div 
+                  key={connection.id} 
+                  className="mb-2"
+                  style={{ backgroundColor: connection.color }}
                 >
-                  {loading[connection.id] ? (
-                    <Loader2 size={16} className="text-blue-400 animate-spin" />
-                  ) : connection.isExpanded ? (
-                    <ChevronDown size={16} className="text-gray-400" />
-                  ) : (
-                    <ChevronRight size={16} className="text-gray-400" />
-                  )}
-                  <Database size={16} className="text-blue-400" />
-                  <span className="text-gray-200 group-hover:text-white">{connection.name}</span>
-                </div>
-                
-                {connection.isExpanded && connection.databases?.map(db => (
-                  <div key={db.name} className="ml-4">
-                    <div
-                      onClick={() => toggleDatabase(connection.id, db.name)}
-                      className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
-                    >
-                      {loading[`${connection.id}-${db.name}`] ? (
-                        <Loader2 size={16} className="text-yellow-500 animate-spin" />
-                      ) : db.isExpanded ? (
-                        <ChevronDown size={16} className="text-gray-400" />
-                      ) : (
-                        <ChevronRight size={16} className="text-gray-400" />
-                      )}
-                      <FolderOpen size={16} className="text-yellow-600" />
-                      <span className="text-sm text-gray-300 group-hover:text-white">{db.name}</span>
-                    </div>
-                    
-                    {db.isExpanded && (
-                      <div className="ml-8">
-                        {db.tables.map(table => (
-                          <div
-                            key={table}
-                            onClick={() => onTableClick(connection, db.name, table)}
-                            className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
-                          >
-                            <Table2 size={16} className="text-blue-400" />
-                            <span className="text-xs text-gray-300 group-hover:text-white">{table}</span>
-                          </div>
-                        ))}
-                      </div>
+                  <div
+                    onContextMenu={(e) => handleContextMenu(e, connection.id)}
+                    onClick={() => toggleConnection(connection.id)}
+                    className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
+                  >
+                    {loading[connection.id] ? (
+                      <Loader2 size={14} className="text-blue-400 animate-spin" />
+                    ) : connection.isExpanded ? (
+                      <ChevronDown size={14} className="text-gray-400" />
+                    ) : (
+                      <ChevronRight size={14} className="text-gray-400" />
                     )}
+                    <Database size={14} className="text-blue-400" />
+                    <span className="text-sm text-gray-200 group-hover:text-white">{connection.name}</span>
                   </div>
-                ))}
-              </div>
-            ))}
+                  
+                  {connection.isExpanded && connection.databases?.map(db => (
+                    <div key={db.name} className="ml-4">
+                      <div
+                        onClick={() => toggleDatabase(connection.id, db.name)}
+                        className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
+                      >
+                        {loading[`${connection.id}-${db.name}`] ? (
+                          <Loader2 size={14} className="text-yellow-500 animate-spin" />
+                        ) : db.isExpanded ? (
+                          <ChevronDown size={14} className="text-gray-400" />
+                        ) : (
+                          <ChevronRight size={14} className="text-gray-400" />
+                        )}
+                        <FolderOpen size={14} className="text-yellow-600" />
+                        <span className="text-xs text-gray-300 group-hover:text-white">{db.name}</span>
+                      </div>
+                      
+                      {db.isExpanded && (
+                        <div className="ml-8">
+                          {db.tables.map(table => (
+                            <div
+                              key={table}
+                              onClick={() => onTableClick(connection, db.name, table)}
+                              className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
+                            >
+                              <Table2 size={14} className="text-blue-400" />
+                              <span className="text-xs text-gray-300 group-hover:text-white">{table}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       <ConnectionModal

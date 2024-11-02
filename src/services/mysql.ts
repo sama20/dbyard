@@ -1,3 +1,5 @@
+import type { ConnectionData } from '../types';
+
 const API_URL = 'http://localhost:3001/api';
 
 interface QueryResult {
@@ -5,6 +7,23 @@ interface QueryResult {
   fields: any[];
   executionTime: number;
   rowsAffected: number;
+}
+
+export async function testSSHConnection(sshConfig: ConnectionData['sshConfig']): Promise<{ success: boolean; message: string }> {
+  try {
+    const response = await fetch(`${API_URL}/test-ssh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sshConfig)
+    });
+    
+    return await response.json();
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'SSH connection failed'
+    };
+  }
 }
 
 export async function testConnection(config: ConnectionData): Promise<{ success: boolean; message: string }> {
@@ -66,9 +85,7 @@ export async function executeQuery(config: ConnectionData, query: string): Promi
 
     const result = await response.json();
     
-    // Ensure rows is always an array
     return {
-      ...result,
       rows: Array.isArray(result.rows) ? result.rows : [],
       fields: result.fields || [],
       executionTime: result.executionTime || 0,

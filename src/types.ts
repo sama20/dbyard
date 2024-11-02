@@ -15,6 +15,13 @@ export interface ConnectionData {
   username: string;
   password: string;
   database: string;
+  sshConfig?: {
+    host: string;
+    port: string;
+    username: string;
+    password?: string;
+    privateKey?: string;
+  };
 }
 
 export interface Connection extends ConnectionData {
@@ -28,4 +35,11 @@ export interface Database {
   name: string;
   isExpanded?: boolean;
   tables: string[];
+}
+
+export interface SavedQuery {
+  id: string;
+  name: string;
+  query: string;
+  createdAt: number;
 }
