@@ -4,7 +4,6 @@ import type { SavedQuery } from '../types';
 const STORAGE_KEY = 'saved_queries';
 
 export function useSavedQueries() {
-  console.log('ssss')
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
@@ -23,7 +22,6 @@ export function useSavedQueries() {
     }]);
   };
 
-  const deleteQuery =<boltAction type="file" filePath="src/hooks/useSavedQueries.ts"> (continuing from previous content...)
   const deleteQuery = (id: string) => {
     setSavedQueries(prev => prev.filter(query => query.id !== id));
   };

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Database, FileJson, Save, Settings as SettingsIcon } from 'lucide-react';
+import { Database, FileJson, Settings as SettingsIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';
@@ -106,10 +106,13 @@ function App() {
     }
   };
 
+  const handleLoadQuery = (query: string) => {
+    updateQuery(query);
+  };
+
   const handleUpdateData = async (changes: any[]) => {
     if (!activeConnection || !activeTab.database || !queryResult?.fields) return;
 
-    // Extract table name from the query
     const tableMatch = activeTab.query.match(/FROM\s+`?(\w+)`?/i);
     if (!tableMatch) {
       setQueryError('Could not determine table name from query');
@@ -117,7 +120,7 @@ function App() {
     }
 
     const tableName = tableMatch[1];
-    const primaryKeyField = queryResult.fields.find((f: any) => f.flags & 2); // Check for primary key flag
+    const primaryKeyField = queryResult.fields.find((f: any) => f.flags & 2);
 
     if (!primaryKeyField) {
       setQueryError('No primary key found in the result set');
@@ -127,7 +130,7 @@ function App() {
     try {
       for (const row of changes) {
         const setClauses = Object.keys(row)
-          .filter(key => key !== primaryKeyField.name) // Exclude primary key from SET clause
+          .filter(key => key !== primaryKeyField.name)
           .map(key => `${key} = ${row[key] === null ? 'NULL' : `'${row[key]}'`}`)
           .join(', ');
 
@@ -138,7 +141,6 @@ function App() {
         );
       }
 
-      // Refresh the data
       handleExecuteQuery();
     } catch (error) {
       console.error('Update error:', error);
@@ -162,9 +164,6 @@ function App() {
             >
               <FileJson size={16} />
             </button>
-            <button className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors">
-              <Save size={16} />
-            </button>
             <button 
               onClick={() => setIsSettingsOpen(true)}
               className="p-1 hover:bg-gray-700 rounded text-gray-300 hover:text-white transition-colors"
@@ -187,6 +186,7 @@ function App() {
           onConnectionChange={updateTabConnection}
           onDatabaseChange={updateTabDatabase}
           onExecuteQuery={handleExecuteQuery}
+          onLoadQuery={handleLoadQuery}
         />
         
         <div className="flex-1 flex flex-col min-h-0">

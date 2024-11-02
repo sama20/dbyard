@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { testConnection } from '../services/mysql';
 import type { ConnectionData } from '../types';
 
@@ -47,6 +47,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [showSSHDetails, setShowSSHDetails] = useState(false);
 
   useEffect(() => {
     setTestStatus({ tested: false, success: false, message: '' });
@@ -73,22 +74,6 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   const handleTest = async () => {
     setIsLoading(true);
     try {
-      if (formData.useSSH) {
-        // First test SSH connection
-        const sshResult = await testSSHConnection(formData.sshConfig!);
-        if (!sshResult.success) {
-          setTestStatus({
-            tested: true,
-            success: false,
-            message: `SSH Connection Failed: ${sshResult.message}`,
-            type: 'ssh'
-          });
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      // Then test MySQL connection
       const result = await testConnection(formData);
       setTestStatus({
         tested: true,
@@ -126,7 +111,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg w-full max-w-md">
+      <div className="bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold text-gray-100">New Connection</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
@@ -134,7 +119,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">Connection Name</label>
             <input
@@ -207,17 +192,19 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
           </div>
 
           <div className="space-y-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={formData.useSSH}
-                onChange={e => setFormData(prev => ({ ...prev, useSSH: e.target.checked }))}
-                className="rounded border-gray-600 text-blue-500 focus:ring-blue-500 bg-gray-700"
-              />
-              <span className="text-sm font-medium text-gray-300">Use SSH Tunnel</span>
-            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setFormData(prev => ({ ...prev, useSSH: !prev.useSSH }));
+                setShowSSHDetails(!formData.useSSH);
+              }}
+              className="flex items-center space-x-2 text-sm font-medium text-gray-300 hover:text-gray-200"
+            >
+              {showSSHDetails ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              <span>Use SSH Tunnel</span>
+            </button>
 
-            {formData.useSSH && (
+            {showSSHDetails && (
               <div className="space-y-4 border-l-2 border-gray-700 pl-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -301,33 +288,33 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               {testStatus.message}
             </div>
           )}
-          
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-gray-100 focus:outline-none"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleTest}
-              disabled={!isFormValid || isLoading}
-              className="px-4 py-2 text-sm font-medium text-blue-400 hover:text-blue-300 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-            >
-              {isLoading && <Loader2 size={16} className="animate-spin" />}
-              <span>Test Connection</span>
-            </button>
-            <button
-              type="submit"
-              disabled={!testStatus.success || !isFormValid}
-              className="px-4 py-2 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Create
-            </button>
-          </div>
         </form>
+
+        <div className="flex justify-end space-x-3 p-4 border-t border-gray-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-gray-100 focus:outline-none"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleTest}
+            disabled={!isFormValid || isLoading}
+            className="px-4 py-2 text-sm font-medium text-blue-400 hover:text-blue-300 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+          >
+            {isLoading && <Loader2 size={16} className="animate-spin" />}
+            <span>Test Connection</span>
+          </button>
+          <button
+            type="submit"
+            disabled={!testStatus.success || !isFormValid}
+            className="px-4 py-2 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Create
+          </button>
+        </div>
       </div>
     </div>
   );
