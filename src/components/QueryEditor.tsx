@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { autocompletion } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { ViewUpdate } from '@codemirror/view';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { Connection } from '../types';
 
 interface QueryEditorProps {
@@ -28,11 +29,11 @@ export default function QueryEditor({
 }: QueryEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView>();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!editorRef.current || viewRef.current) return;
 
-    // Get table and column names from active connection
     const tables = activeConnection?.databases?.flatMap(db => db.tables) || [];
     const tableCompletions = tables.map(table => ({
       label: table,
@@ -126,15 +127,29 @@ export default function QueryEditor({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+    onResize(isCollapsed ? 200 : 50);
+  };
+
   return (
     <div style={{ height }} className="border-b border-gray-700 flex flex-col">
-      <div className="bg-gray-800 text-xs px-4 py-1.5 border-b border-gray-700 text-gray-400">
-        Query Editor
+      <div className="bg-gray-800 text-xs px-4 py-1.5 border-b border-gray-700 text-gray-400 flex justify-between items-center">
+        <span>Query Editor</span>
+        <button
+          onClick={toggleCollapse}
+          className="p-1 hover:bg-gray-700 rounded transition-colors"
+        >
+          {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
       </div>
       <div 
         ref={editorRef}
-        className="w-full flex-1 overflow-auto"
-        style={{ backgroundColor: backgroundColor ? `${backgroundColor}10` : undefined }}
+        className={`w-full flex-1 overflow-auto transition-all duration-300 ${isCollapsed ? 'opacity-0' : 'opacity-100'}`}
+        style={{ 
+          backgroundColor: backgroundColor ? `${backgroundColor}10` : undefined,
+          display: isCollapsed ? 'none' : 'block'
+        }}
         onContextMenu={(e) => e.preventDefault()}
       />
       <div 
