@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { testConnection } from '../services/mysql';
+import { testConnection, testSSHConnection } from '../services/mysql';
 import type { ConnectionData } from '../types';
 
 interface ConnectionModalProps {
@@ -67,11 +67,9 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
         port: formData.port,
         username: formData.username,
         password: formData.password,
-        database: formData.database
+        database: formData.database,
+        sshConfig: formData.useSSH ? formData.sshConfig : undefined
       };
-      if (formData.useSSH) {
-        connectionData.sshConfig = formData.sshConfig;
-      }
       onSave(connectionData);
     }
   };
@@ -79,10 +77,23 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   const handleTest = async () => {
     setIsLoading(true);
     try {
-      const result = await testConnection({
-        ...formData,
-        sshConfig: formData.useSSH ? formData.sshConfig : undefined
-      });
+      if (formData.useSSH) {
+        // First test SSH connection
+        const sshResult = await testSSHConnection(formData.sshConfig!);
+        if (!sshResult.success) {
+          setTestStatus({
+            tested: true,
+            success: false,
+            message: sshResult.message,
+            type: 'ssh'
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Then test database connection
+      const result = await testConnection(formData);
       setTestStatus({
         tested: true,
         success: result.success,
@@ -119,7 +130,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
+      <div className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-lg font-semibold text-gray-100">New Connection</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
@@ -163,12 +174,12 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="text"
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="My Database"
               required
             />
           </div>
-          
+
           {activeTab === 'ssh' && (
             <>
               <div className="grid grid-cols-2 gap-4">
@@ -181,9 +192,9 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                       ...prev,
                       sshConfig: { ...prev.sshConfig!, host: e.target.value }
                     }))}
-                    className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required={formData.useSSH}
+                    className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="ssh.example.com"
+                    required={formData.useSSH}
                   />
                 </div>
                 <div>
@@ -195,9 +206,9 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                       ...prev,
                       sshConfig: { ...prev.sshConfig!, port: e.target.value }
                     }))}
-                    className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required={formData.useSSH}
+                    className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="22"
+                    required={formData.useSSH}
                   />
                 </div>
               </div>
@@ -211,7 +222,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                     ...prev,
                     sshConfig: { ...prev.sshConfig!, username: e.target.value }
                   }))}
-                  className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required={formData.useSSH}
                 />
               </div>
@@ -227,7 +238,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                     ...prev,
                     sshConfig: { ...prev.sshConfig!, password: e.target.value }
                   }))}
-                  className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -241,8 +252,8 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                     ...prev,
                     sshConfig: { ...prev.sshConfig!, privateKey: e.target.value }
                   }))}
-                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                  placeholder="Paste your private key here"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 h-24 font-mono text-sm"
+                  placeholder="-----BEGIN RSA PRIVATE KEY-----"
                 />
               </div>
             </>
@@ -255,8 +266,8 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                 type="text"
                 value={formData.host}
                 onChange={e => setFormData(prev => ({ ...prev, host: e.target.value }))}
-                className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="localhost"
+                className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={formData.useSSH ? "127.0.0.1" : "localhost"}
                 required
               />
             </div>
@@ -266,34 +277,35 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                 type="text"
                 value={formData.port}
                 onChange={e => setFormData(prev => ({ ...prev, port: e.target.value }))}
-                className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="3306"
                 required
               />
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Database Username</label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
-              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Database Password <span className="text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Database Username</label>
+              <input
+                type="text"
+                value={formData.username}
+                onChange={e => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Database Password <span className="text-gray-400">(optional)</span>
+              </label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={e => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
           
           <div>
@@ -302,7 +314,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
               type="text"
               value={formData.database}
               onChange={e => setFormData(prev => ({ ...prev, database: e.target.value }))}
-              className="w-full px-3 py-1 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
