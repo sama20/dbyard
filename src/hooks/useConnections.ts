@@ -15,7 +15,7 @@ export function useConnections() {
 
   const updateConnectionColor = (connectionId: string, color: string | null) => {
     setConnections(prev => prev.map(conn => 
-      conn.id === connectionId ? { ...conn, color } : conn
+      conn.id === connectionId ? { ...conn, color: color ?? undefined } : conn
     ));
   };
 

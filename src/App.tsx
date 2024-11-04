@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Database, FileJson, Settings as SettingsIcon } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { FileJson, Settings as SettingsIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { Toaster } from 'react-hot-toast';
 import Sidebar from './components/Sidebar';

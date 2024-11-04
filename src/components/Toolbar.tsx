@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Play, RefreshCw, Terminal, Plus, Save, BookOpen } from 'lucide-react';
 import { Connection, QueryTab, SavedQuery } from '../types';
-import { executeQuery } from '../services/mysql';
 import toast from 'react-hot-toast';
 import SaveQueryModal from './SaveQueryModal';
 import SavedQueriesModal from './SavedQueriesModal';

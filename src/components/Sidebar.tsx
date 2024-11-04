@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, Palette, ChevronLeftCircle, ChevronRightCircle } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, ChevronLeftCircle, ChevronRightCircle } from 'lucide-react';
 import ConnectionModal from './ConnectionModal';
 import ColorPicker from './ColorPicker';
 import { fetchDatabases, fetchTables } from '../services/mysql';
 import { useConnections } from '../hooks/useConnections';
-import { useSettings } from '../hooks/useSettings';
 import type { Connection, ConnectionData } from '../types';
 
 interface SidebarProps {
-  onTableClick: (connection: Connection, database: string, table: string) => void;
+  onTableClick: (connection: Connection, database: string, table: string) => Promise<void>;
+  connections: Connection[];  // Ensure this line is present
 }
 
 const COLORS = [
@@ -23,7 +23,6 @@ const COLORS = [
 export default function Sidebar({ onTableClick }: SidebarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { connections, setConnections } = useConnections();
-  const { settings } = useSettings();
   const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [colorPickerState, setColorPickerState] = useState<{
