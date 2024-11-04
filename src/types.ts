@@ -43,3 +43,27 @@ export interface SavedQuery {
   query: string;
   createdAt: number;
 }
+
+export interface Connection {
+  id: string;
+  color?: string;
+  // Add other connection properties
+}
+
+export interface QueryTab {
+  id: string;
+  title: string;
+  query: string;
+  connectionId?: string;
+  database?: string;
+}
+
+export interface QueryResult {
+  fields: Array<{ name: string; flags: number }>;
+  // Add other result properties
+}
+
+export interface Settings {
+  defaultLimit: number;
+  // Add other settings
+}
