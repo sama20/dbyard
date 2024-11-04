@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FileJson, Settings as SettingsIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { Toaster } from 'react-hot-toast';
@@ -17,42 +17,75 @@ function App() {
   const { settings, setSettings } = useSettings();
   const { connections } = useConnections();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [tabs, setTabs] = useState<QueryTab[]>([
-    { id: nanoid(), title: 'Query 1', query: 'SELECT * FROM users LIMIT 10;' }
-  ]);
-  const [activeTabId, setActiveTabId] = useState(tabs[0].id);
+  
+  // Use a more stable state structure for tabs
+  const [tabsState, setTabsState] = useState(() => {
+    const initialTab = {
+      id: nanoid(),
+      title: 'Query 1',
+      query: 'SELECT * FROM users LIMIT 10;'
+    };
+    return {
+      tabs: [initialTab],
+      activeTabId: initialTab.id
+    };
+  });
+
   const [editorHeight, setEditorHeight] = useState(200);
   const [activeResultTab, setActiveResultTab] = useState<'results' | 'info'>('results');
   const [queryResult, setQueryResult] = useState<any>(null);
   const [queryError, setQueryError] = useState<string | undefined>();
 
-  const activeTab = tabs.find(tab => tab.id === activeTabId) || tabs[0];
-  const activeConnection = connections.find(c => c.id === activeTab.connectionId);
+  // Memoize active tab and connection
+  const activeTab = useMemo(() => 
+    tabsState.tabs.find(tab => tab.id === tabsState.activeTabId) || tabsState.tabs[0],
+    [tabsState.activeTabId, tabsState.tabs]
+  );
+
+  const activeConnection = useMemo(() => 
+    connections.find(c => c.id === activeTab.connectionId),
+    [connections, activeTab.connectionId]
+  );
 
   const updateTabConnection = useCallback((connectionId: string) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId ? { ...tab, connectionId, database: undefined } : tab
-    ));
-  }, [activeTabId]);
+    setTabsState(prev => ({
+      ...prev,
+      tabs: prev.tabs.map(tab => 
+        tab.id === prev.activeTabId 
+          ? { ...tab, connectionId, database: undefined }
+          : tab
+      )
+    }));
+  }, []);
 
   const updateTabDatabase = useCallback((database: string) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId ? { ...tab, database } : tab
-    ));
-  }, [activeTabId]);
+    setTabsState(prev => ({
+      ...prev,
+      tabs: prev.tabs.map(tab => 
+        tab.id === prev.activeTabId
+          ? { ...tab, database }
+          : tab
+      )
+    }));
+  }, []);
 
   const handleTableClick = useCallback(async (connection: Connection, database: string, table: string) => {
     const query = `SELECT * FROM ${table} LIMIT ${settings.defaultLimit};`;
-    const newTab: QueryTab = {
+    const newTab = {
       id: nanoid(),
       title: table,
       query,
       connectionId: connection.id,
       database
     };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
+
+    setTabsState(prev => ({
+      tabs: [...prev.tabs, newTab],
+      activeTabId: newTab.id
+    }));
+
     setQueryError(undefined);
+    setQueryResult(null);
 
     try {
       const result = await executeQuery({ ...connection, database }, query);
@@ -64,34 +97,53 @@ function App() {
   }, [settings.defaultLimit]);
 
   const createNewTab = useCallback(() => {
-    const newTab: QueryTab = {
+    const newTab = {
       id: nanoid(),
-      title: `Query ${tabs.length + 1}`,
+      title: `Query ${tabsState.tabs.length + 1}`,
       query: ''
     };
-    setTabs(prev => [...prev, newTab]);
-    setActiveTabId(newTab.id);
-  }, [tabs.length]);
+
+    setTabsState(prev => ({
+      tabs: [...prev.tabs, newTab],
+      activeTabId: newTab.id
+    }));
+  }, [tabsState.tabs.length]);
 
   const updateQuery = useCallback((query: string) => {
-    setTabs(prev => prev.map(tab => 
-      tab.id === activeTabId ? { ...tab, query } : tab
-    ));
-  }, [activeTabId]);
+    setTabsState(prev => ({
+      ...prev,
+      tabs: prev.tabs.map(tab => 
+        tab.id === prev.activeTabId
+          ? { ...tab, query }
+          : tab
+      )
+    }));
+  }, []);
 
   const closeTab = useCallback((tabId: string) => {
-    setTabs(prev => {
-      const newTabs = prev.filter(tab => tab.id !== tabId);
-      if (activeTabId === tabId && newTabs.length > 0) {
-        setActiveTabId(newTabs[newTabs.length - 1].id);
-      }
-      return newTabs;
+    setTabsState(prev => {
+      const newTabs = prev.tabs.filter(tab => tab.id !== tabId);
+      return {
+        tabs: newTabs,
+        activeTabId: prev.activeTabId === tabId
+          ? newTabs[newTabs.length - 1]?.id || ''
+          : prev.activeTabId
+      };
     });
-  }, [activeTabId]);
+  }, []);
 
-  const handleExecuteQuery = async () => {
+  const setActiveTabId = useCallback((tabId: string) => {
+    setTabsState(prev => ({
+      ...prev,
+      activeTabId: tabId
+    }));
+  }, []);
+
+  const handleExecuteQuery = useCallback(async () => {
     if (!activeConnection || !activeTab.database) return;
+    
     setQueryError(undefined);
+    setQueryResult(null);
 
     try {
       const result = await executeQuery(
@@ -102,15 +154,14 @@ function App() {
       setActiveResultTab('results');
     } catch (error) {
       setQueryError(error instanceof Error ? error.message : 'Query execution failed');
-      setQueryResult(null);
     }
-  };
+  }, [activeConnection, activeTab.database, activeTab.query]);
 
-  const handleLoadQuery = (query: string) => {
+  const handleLoadQuery = useCallback((query: string) => {
     updateQuery(query);
-  };
+  }, [updateQuery]);
 
-  const handleUpdateData = async (changes: any[]) => {
+  const handleUpdateData = useCallback(async (changes: any[]) => {
     if (!activeConnection || !activeTab.database || !queryResult?.fields) return;
 
     const tableMatch = activeTab.query.match(/FROM\s+`?(\w+)`?/i);
@@ -146,7 +197,7 @@ function App() {
       console.error('Update error:', error);
       setQueryError(error instanceof Error ? error.message : 'Failed to update data');
     }
-  };
+  }, [activeConnection, activeTab.database, activeTab.query, queryResult?.fields, handleExecuteQuery]);
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
@@ -174,8 +225,8 @@ function App() {
         </nav>
         
         <QueryTabs
-          tabs={tabs}
-          activeTabId={activeTabId}
+          tabs={tabsState.tabs}
+          activeTabId={tabsState.activeTabId}
           onTabSelect={setActiveTabId}
           onTabClose={closeTab}
         />
@@ -191,6 +242,7 @@ function App() {
         
         <div className="flex-1 flex flex-col min-h-0">
           <QueryEditor 
+            key={activeTab.id} // Add key to force re-render on tab change
             value={activeTab.query} 
             onChange={updateQuery}
             height={editorHeight}
