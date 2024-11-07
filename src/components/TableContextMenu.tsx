@@ -14,9 +14,6 @@ interface TableContextMenuProps {
 export default function TableContextMenu({ 
   position, 
   onClose, 
-  connection,
-  database,
-  table,
   onAction 
 }: TableContextMenuProps) {
   const menuRef = React.useRef<HTMLDivElement>(null);

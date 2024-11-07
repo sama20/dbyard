@@ -1,6 +1,5 @@
-// App.tsx
-import React, { useMemo } from 'react';
-import { nanoid } from 'nanoid';
+// src/App.tsx
+import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { FileJson, Settings as SettingsIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar';
@@ -9,20 +8,14 @@ import ResultsPanel from './components/ResultsPanel';
 import Toolbar from './components/Toolbar';
 import QueryTabs from './components/QueryTabs';
 import SettingsModal from './components/SettingsModal';
+import { useAppHooks } from './hooks/useAppHooks';
+import usePreventRightClick from './hooks/usePreventRightClick';
 import { useSettings } from './hooks/useSettings';
-import { useConnections } from './hooks/useConnections';
-import { useQueryTabs } from './hooks/useQueryTabs';
-import { useQueryExecution } from './hooks/useQueryExecution';
-import { useDataUpdater } from './hooks/useDataUpdater';
-import type { Connection, QueryTab } from './types';
 
 const App: React.FC = () => {
   const { settings, setSettings } = useSettings();
-  const { connections } = useConnections();
-  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
-  const [editorHeight, setEditorHeight] = React.useState(200);
-
-  const {
+  const {    
+    connections,
     tabsState,
     createNewTab,
     updateQuery,
@@ -30,78 +23,20 @@ const App: React.FC = () => {
     setActiveTabId,
     updateTabConnection,
     updateTabDatabase,
-    updateTabResult
-  } = useQueryTabs('SELECT * FROM users LIMIT 10;');
-
-  const {
     activeResultTab,
     setActiveResultTab,
-    executeQueryWithConnection
-  } = useQueryExecution();
+    activeTab,
+    activeConnection,
+    handleTableClick,
+    handleExecuteQuery,
+    handleUpdateData
+  } = useAppHooks();
 
-  const { updateData } = useDataUpdater();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(200);
 
-  const activeTab = useMemo(() => 
-    tabsState.tabs.find(tab => tab.id === tabsState.activeTabId) || tabsState.tabs[0],
-    [tabsState.activeTabId, tabsState.tabs]
-  );
-
-  const activeConnection = useMemo(() => 
-    connections.find(c => c.id === activeTab.connectionId),
-    [connections, activeTab.connectionId]
-  );
-
-  const handleTableClick = React.useCallback(async (connection: Connection, database: string, table: string) => {
-    const query = `SELECT * FROM ${table} LIMIT ${settings.defaultLimit};`;
-    const newTab: QueryTab = {
-      id: nanoid(),
-      title: table,
-      query,
-      connectionId: connection.id,
-      database
-    };
-
-    createNewTab(newTab);
-
-    try {
-      const result = await executeQueryWithConnection(connection, database, query);
-      updateTabResult(result);
-    } catch (error) {
-      updateTabResult(undefined, error instanceof Error ? error.message : 'Query failed');
-    }
-  }, [settings.defaultLimit, executeQueryWithConnection, createNewTab, updateTabResult]);
-
-  const handleExecuteQuery = React.useCallback(async () => {
-    if (!activeConnection || !activeTab.database) return;
-    
-    try {
-      const result = await executeQueryWithConnection(
-        activeConnection,
-        activeTab.database,
-        activeTab.query
-      );
-      updateTabResult(result);
-    } catch (error) {
-      updateTabResult(undefined, error instanceof Error ? error.message : 'Query failed');
-    }
-  }, [activeConnection, activeTab.database, activeTab.query, executeQueryWithConnection, updateTabResult]);
-
-  const handleUpdateData = React.useCallback(async (changes: Array<Record<string, any>>) => {
-    if (!activeConnection || !activeTab.database || !activeTab.result?.fields) return;
-    
-    try {
-      await updateData(
-        activeConnection,
-        activeTab.database,
-        activeTab.query,
-        activeTab.result,
-        changes
-      );
-      await handleExecuteQuery();
-    } catch (error) {
-      // Error will be handled by executeQueryWithConnection
-    }
-  }, [activeConnection, activeTab, updateData, handleExecuteQuery]);
+  // Use the custom hook to prevent right-click
+  usePreventRightClick();
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
