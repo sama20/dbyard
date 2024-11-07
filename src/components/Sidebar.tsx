@@ -2,13 +2,15 @@ import React, { useState, useCallback } from 'react';
 import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, ChevronLeftCircle, ChevronRightCircle } from 'lucide-react';
 import ConnectionModal from './ConnectionModal';
 import ColorPicker from './ColorPicker';
-import { fetchDatabases, fetchTables } from '../services/mysql';
+import TableContextMenu from './TableContextMenu';
+import { fetchDatabases, fetchTables, executeQuery } from '../services/mysql';
 import { useConnections } from '../hooks/useConnections';
 import type { Connection, ConnectionData } from '../types';
+import toast from 'react-hot-toast';
 
 interface SidebarProps {
   onTableClick: (connection: Connection, database: string, table: string) => Promise<void>;
-  connections: Connection[];  // Ensure this line is present
+  connections: Connection[];
 }
 
 const COLORS = [
@@ -19,6 +21,15 @@ const COLORS = [
   { label: 'Yellow', value: 'rgba(245, 158, 11, 0.1)' },
   { label: 'None', value: '' }
 ];
+
+interface ContextMenuState {
+  isOpen: boolean;
+  x: number;
+  y: number;
+  connection?: Connection;
+  database?: string;
+  table?: string;
+}
 
 export default function Sidebar({ onTableClick }: SidebarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +46,12 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
     position: { x: 0, y: 0 }
   });
 
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
+    isOpen: false,
+    x: 0,
+    y: 0
+  });
+
   const handleContextMenu = useCallback((e: React.MouseEvent, connectionId: string) => {
     e.preventDefault();
     setColorPickerState({
@@ -43,6 +60,147 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
       position: { x: e.clientX, y: e.clientY }
     });
   }, []);
+
+  const handleTableContextMenu = useCallback((
+    e: React.MouseEvent,
+    connection: Connection,
+    database: string,
+    table: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      isOpen: true,
+      x: e.clientX,
+      y: e.clientY,
+      connection,
+      database,
+      table
+    });
+  }, []);
+
+  const handleTableAction = async (action: string) => {
+    if (!contextMenu.connection || !contextMenu.database || !contextMenu.table) return;
+
+    const { connection, database, table } = contextMenu;
+
+    try {
+      switch (action) {
+        case 'edit':
+          onTableClick(connection, database, table);
+          break;
+
+        case 'truncate':
+          if (window.confirm(`Are you sure you want to truncate table "${table}"? This will delete all data.`)) {
+            await executeQuery(
+              { ...connection, database },
+              `TRUNCATE TABLE ${table}`
+            );
+            toast.success(`Table "${table}" truncated successfully`);
+          }
+          break;
+
+        case 'drop':
+          if (window.confirm(`Are you sure you want to drop table "${table}"? This action cannot be undone.`)) {
+            await executeQuery(
+              { ...connection, database },
+              `DROP TABLE ${table}`
+            );
+            // Refresh tables list
+            await toggleDatabase(connection.id, database);
+            toast.success(`Table "${table}" dropped successfully`);
+          }
+          break;
+
+        case 'export':
+          const result = await executeQuery(
+            { ...connection, database },
+            `SELECT * FROM ${table}`
+          );
+          
+          if (result.rows) {
+            const csv = convertToCSV(result.rows);
+            downloadCSV(csv, `${table}.csv`);
+            toast.success(`Table "${table}" exported successfully`);
+          }
+          break;
+
+        case 'import':
+          // Open file input
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = '.csv';
+          input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (file) {
+              try {
+                const content = await file.text();
+                const rows = parseCSV(content);
+                if (rows.length > 0) {
+                  const columns = Object.keys(rows[0]).join(', ');
+                  const values = rows.map(row => 
+                    `(${Object.values(row).map(v => `'${v}'`).join(', ')})`
+                  ).join(',\n');
+
+                  await executeQuery(
+                    { ...connection, database },
+                    `INSERT INTO ${table} (${columns}) VALUES ${values}`
+                  );
+                  toast.success(`Data imported successfully into "${table}"`);
+                }
+              } catch (error) {
+                toast.error('Failed to import data: ' + (error instanceof Error ? error.message : 'Unknown error'));
+              }
+            }
+          };
+          input.click();
+          break;
+      }
+    } catch (error) {
+      toast.error('Operation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const convertToCSV = (rows: any[]): string => {
+    if (rows.length === 0) return '';
+    
+    const headers = Object.keys(rows[0]);
+    const csvRows = [
+      headers.join(','),
+      ...rows.map(row => 
+        headers.map(header => 
+          JSON.stringify(row[header] ?? '')
+        ).join(',')
+      )
+    ];
+    
+    return csvRows.join('\n');
+  };
+
+  const parseCSV = (content: string): any[] => {
+    const lines = content.split('\n');
+    const headers = lines[0].split(',').map(h => h.trim());
+    
+    return lines.slice(1)
+      .filter(line => line.trim())
+      .map(line => {
+        const values = line.split(',').map(v => v.trim());
+        return headers.reduce((obj, header, i) => {
+          obj[header] = values[i];
+          return obj;
+        }, {} as any);
+      });
+  };
+
+  const downloadCSV = (csv: string, filename: string) => {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   const handleColorSelect = useCallback((color: string) => {
     if (colorPickerState.connectionId) {
@@ -215,7 +373,7 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
                           <ChevronRight size={14} className="text-gray-400" />
                         )}
                         <FolderOpen size={14} className="text-yellow-600" />
-                        <span className="text-xs text-gray-300 group-hover:text-white">{db.name}</span>
+                        <span style={{ minWidth: 14, minHeight: 14 }} className="text-xs text-gray-300 group-hover:text-white">{db.name}</span>
                       </div>
                       
                       {db.isExpanded && (
@@ -224,10 +382,14 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
                             <div
                               key={table}
                               onClick={() => onTableClick(connection, db.name, table)}
+                              onContextMenu={(e) => handleTableContextMenu(e, connection, db.name, table)}
                               className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
                             >
                               <Table2 size={14} className="text-blue-400" />
-                              <span className="text-xs text-gray-300 group-hover:text-white">{table}</span>
+                              <span 
+                                style={{ minWidth: 14, minHeight: 14 }}
+                                className="text-xs text-gray-300 group-hover:text-white">{table}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -253,6 +415,17 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
           colors={COLORS}
           onSelect={handleColorSelect}
           onClose={() => setColorPickerState(prev => ({ ...prev, isOpen: false }))}
+        />
+      )}
+
+      {contextMenu.isOpen && contextMenu.connection && contextMenu.database && contextMenu.table && (
+        <TableContextMenu
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(prev => ({ ...prev, isOpen: false }))}
+          connection={contextMenu.connection}
+          database={contextMenu.database}
+          table={contextMenu.table}
+          onAction={handleTableAction}
         />
       )}
     </>
