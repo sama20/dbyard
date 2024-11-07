@@ -1,10 +1,9 @@
-// hooks/useQueryTabs.ts
 import { useState, useCallback } from 'react';
 import { nanoid } from 'nanoid';
-import type { QueryTab } from '../types';
+import type { QueryTab, QueryResult } from '../types';
 
 interface QueryTabsState {
-  tabs: QueryTab[];
+  tabs: Array<QueryTab & { result?: QueryResult; error?: string }>;
   activeTabId: string;
 }
 
@@ -42,6 +41,17 @@ export const useQueryTabs = (initialQuery: string = '') => {
       tabs: prev.tabs.map(tab => 
         tab.id === prev.activeTabId
           ? { ...tab, query }
+          : tab
+      )
+    }));
+  }, []);
+
+  const updateTabResult = useCallback((result: QueryResult | undefined, error?: string) => {
+    setTabsState(prev => ({
+      ...prev,
+      tabs: prev.tabs.map(tab => 
+        tab.id === prev.activeTabId
+          ? { ...tab, result, error }
           : tab
       )
     }));
@@ -92,6 +102,7 @@ export const useQueryTabs = (initialQuery: string = '') => {
     tabsState,
     createNewTab,
     updateQuery,
+    updateTabResult,
     closeTab,
     setActiveTabId,
     updateTabConnection,

@@ -29,12 +29,11 @@ const App: React.FC = () => {
     closeTab,
     setActiveTabId,
     updateTabConnection,
-    updateTabDatabase
+    updateTabDatabase,
+    updateTabResult
   } = useQueryTabs('SELECT * FROM users LIMIT 10;');
 
   const {
-    queryResult,
-    queryError,
     activeResultTab,
     setActiveResultTab,
     executeQueryWithConnection
@@ -65,42 +64,44 @@ const App: React.FC = () => {
     createNewTab(newTab);
 
     try {
-      await executeQueryWithConnection(connection, database, query);
+      const result = await executeQueryWithConnection(connection, database, query);
+      updateTabResult(result);
     } catch (error) {
-      // Error handling is done within executeQueryWithConnection
+      updateTabResult(undefined, error instanceof Error ? error.message : 'Query failed');
     }
-  }, [settings.defaultLimit, executeQueryWithConnection, createNewTab]);
+  }, [settings.defaultLimit, executeQueryWithConnection, createNewTab, updateTabResult]);
 
   const handleExecuteQuery = React.useCallback(async () => {
     if (!activeConnection || !activeTab.database) return;
     
     try {
-      await executeQueryWithConnection(
+      const result = await executeQueryWithConnection(
         activeConnection,
         activeTab.database,
         activeTab.query
       );
+      updateTabResult(result);
     } catch (error) {
-      // Error handling is done within executeQueryWithConnection
+      updateTabResult(undefined, error instanceof Error ? error.message : 'Query failed');
     }
-  }, [activeConnection, activeTab.database, activeTab.query, executeQueryWithConnection]);
+  }, [activeConnection, activeTab.database, activeTab.query, executeQueryWithConnection, updateTabResult]);
 
   const handleUpdateData = React.useCallback(async (changes: Array<Record<string, any>>) => {
-    if (!activeConnection || !activeTab.database || !queryResult?.fields) return;
+    if (!activeConnection || !activeTab.database || !activeTab.result?.fields) return;
     
     try {
       await updateData(
         activeConnection,
         activeTab.database,
         activeTab.query,
-        queryResult,
+        activeTab.result,
         changes
       );
       await handleExecuteQuery();
     } catch (error) {
       // Error will be handled by executeQueryWithConnection
     }
-  }, [activeConnection, activeTab, queryResult, updateData, handleExecuteQuery]);
+  }, [activeConnection, activeTab, updateData, handleExecuteQuery]);
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-100 overflow-hidden">
@@ -158,8 +159,8 @@ const App: React.FC = () => {
             <ResultsPanel
               activeTab={activeResultTab}
               onTabChange={setActiveResultTab}
-              queryResult={queryResult}
-              error={queryError}
+              queryResult={activeTab.result}
+              error={activeTab.error}
               backgroundColor={activeConnection?.color}
               onUpdateData={handleUpdateData}
             />
