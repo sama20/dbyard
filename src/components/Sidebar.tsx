@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { Database, Table2, FolderOpen, Plus, ChevronRight, ChevronDown, Loader2, ChevronLeftCircle, ChevronRightCircle } from 'lucide-react';
 import ConnectionModal from './ConnectionModal';
 import ColorPicker from './ColorPicker';
 import TableContextMenu from './TableContextMenu';
@@ -7,6 +6,10 @@ import { fetchDatabases, fetchTables, executeQuery } from '../services/mysql';
 import { useConnections } from '../hooks/useConnections';
 import type { Connection, ConnectionData } from '../types';
 import toast from 'react-hot-toast';
+import { SidebarHeader } from './Sidebar/SidebarHeader';
+import { ConnectionList } from './Sidebar/ConnectionList';
+import { DatabaseList } from './Sidebar/DatabaseList';
+import { TableList } from './Sidebar/TableList';
 
 interface SidebarProps {
   onTableClick: (connection: Connection, database: string, table: string) => Promise<void>;
@@ -305,110 +308,46 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
   return (
     <>
       <div className={`${isCollapsed ? 'w-12' : 'w-64'} bg-gray-800 flex flex-col shrink-0 border-r border-gray-700 transition-all duration-300`}>
-        <div className="p-2 border-b border-gray-700 flex items-center justify-between">
-          {!isCollapsed && (
-            <>
-              <div className="flex items-center space-x-2">
-                <Database size={18} className="text-blue-400" />
-                <span className="font-medium text-sm text-gray-100">Connections</span>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="p-1 hover:bg-gray-700 rounded-md transition-colors"
-                title="Add Connection"
-              >
-                <Plus size={14} className="text-gray-300 hover:text-white" />
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 hover:bg-gray-700 rounded-md transition-colors ml-auto"
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? (
-              <ChevronRightCircle size={14} className="text-gray-300 hover:text-white" />
-            ) : (
-              <ChevronLeftCircle size={14} className="text-gray-300 hover:text-white" />
-            )}
-          </button>
-        </div>
-        
+        <SidebarHeader
+          isCollapsed={isCollapsed}
+          onCollapseToggle={() => setIsCollapsed(!isCollapsed)}
+          onAddConnection={() => setIsModalOpen(true)}
+        />
         {!isCollapsed && (
           <div className="flex-1 overflow-auto">
-            <div className="p-2">
-              {connections.map(connection => (
-                <div 
-                  key={connection.id} 
-                  className="mb-2"
-                  style={{ backgroundColor: connection.color }}
-                >
-                  <div
-                    onContextMenu={(e) => handleContextMenu(e, connection.id)}
-                    onClick={() => toggleConnection(connection.id)}
-                    className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
-                  >
-                    {loading[connection.id] ? (
-                      <Loader2 size={14} className="text-blue-400 animate-spin" />
-                    ) : connection.isExpanded ? (
-                      <ChevronDown size={14} className="text-gray-400" />
-                    ) : (
-                      <ChevronRight size={14} className="text-gray-400" />
-                    )}
-                    <Database size={14} className="text-blue-400" />
-                    <span className="text-sm text-gray-200 group-hover:text-white">{connection.name}</span>
-                  </div>
-                  
-                  {connection.isExpanded && connection.databases?.map(db => (
-                    <div key={db.name} className="ml-4">
-                      <div
-                        onClick={() => toggleDatabase(connection.id, db.name)}
-                        className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
-                      >
-                        {loading[`${connection.id}-${db.name}`] ? (
-                          <Loader2 size={14} className="text-yellow-500 animate-spin" />
-                        ) : db.isExpanded ? (
-                          <ChevronDown size={14} className="text-gray-400" />
-                        ) : (
-                          <ChevronRight size={14} className="text-gray-400" />
-                        )}
-                        <FolderOpen size={14} className="text-yellow-600" />
-                        <span style={{ minWidth: 14, minHeight: 14 }} className="text-xs text-gray-300 group-hover:text-white">{db.name}</span>
-                      </div>
-                      
-                      {db.isExpanded && (
-                        <div className="ml-8">
-                          {db.tables.map(table => (
-                            <div
-                              key={table}
-                              onClick={() => onTableClick(connection, db.name, table)}
-                              onContextMenu={(e) => handleTableContextMenu(e, connection, db.name, table)}
-                              className="flex items-center space-x-2 p-1 hover:bg-gray-700/50 rounded cursor-pointer group"
-                            >
-                              <Table2 size={14} className="text-blue-400" />
-                              <span 
-                                style={{ minWidth: 14, minHeight: 14 }}
-                                className="text-xs text-gray-300 group-hover:text-white">{table}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
+            <ConnectionList
+              connections={connections}
+              loading={loading}
+              onToggleConnection={toggleConnection}
+              onContextMenu={handleContextMenu}
+              renderDatabases={(connection) => (
+                <DatabaseList
+                  connection={connection}
+                  loading={loading}
+                  onToggleDatabase={toggleDatabase}
+                  renderTables={(conn, dbName) => {
+                    const db = conn.databases?.find(d => d.name === dbName);
+                    return db && db.isExpanded ? (
+                      <TableList
+                        connection={conn}
+                        dbName={dbName}
+                        tables={db.tables}
+                        onTableClick={onTableClick}
+                        onTableContextMenu={handleTableContextMenu}
+                      />
+                    ) : null;
+                  }}
+                />
+              )}
+            />
           </div>
         )}
       </div>
-      
       <ConnectionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleSaveConnection}
       />
-
       {colorPickerState.isOpen && (
         <ColorPicker
           position={colorPickerState.position}
@@ -417,7 +356,6 @@ export default function Sidebar({ onTableClick }: SidebarProps) {
           onClose={() => setColorPickerState(prev => ({ ...prev, isOpen: false }))}
         />
       )}
-
       {contextMenu.isOpen && contextMenu.connection && contextMenu.database && contextMenu.table && (
         <TableContextMenu
           position={{ x: contextMenu.x, y: contextMenu.y }}
