@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, X } from 'lucide-react';
+import { CellValueModal } from './CellValueModal';
 
 interface ResultsTableProps {
   data?: any[];
@@ -13,7 +14,7 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
   const [editedData, setEditedData] = useState<any[]>([]);
   const [selectedCells, setSelectedCells] = useState<Set<string>>(new Set());
   const [hasChanges, setHasChanges] = useState(false);
-  const [editingValue, setEditingValue] = useState('');
+  const [modalValue, setModalValue] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
@@ -26,7 +27,6 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
     setEditMode(false);
     setSelectedCells(new Set());
     setHasChanges(false);
-    setEditingValue('');
   };
 
   if (error) {
@@ -65,7 +65,6 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
     }
     
     setSelectedCells(newSelected);
-    setEditingValue(''); // Reset editing value when selecting new cells
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -83,7 +82,6 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
         });
         setEditedData(newData);
         setHasChanges(true);
-        setEditingValue(text);
       });
       return;
     }
@@ -97,23 +95,9 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
       });
       setEditedData(newData);
       setHasChanges(true);
-      setEditingValue('');
     } else if (e.key.length === 1) {
-      setEditingValue(prev => {
-        const newValue = prev + e.key;
-        const newData = [...editedData];
-        selectedCells.forEach(cell => {
-          const [rowIndex, colIndex] = cell.split('-').map(Number);
-          const fieldName = fields[colIndex].name;
-          newData[rowIndex][fieldName] = newValue;
-        });
-        setEditedData(newData);
-        setHasChanges(true);
-        return newValue;
-      });
     } else if (e.key === 'Enter') {
       setSelectedCells(new Set());
-      setEditingValue('');
     }
   };
 
@@ -130,6 +114,14 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
   const handleCancel = () => {
     setEditedData(JSON.parse(JSON.stringify(data)));
     resetEditState();
+  };
+
+  // Helper to truncate long values
+  const truncateValue = (value: string, maxLength = 40) => {
+    if (value.length > maxLength) {
+      return value.slice(0, maxLength) + '...';
+    }
+    return value;
   };
 
   return (
@@ -191,24 +183,36 @@ export default function ResultsTable({ data, fields, error, onUpdate }: ResultsT
             <tbody>
               {editedData.map((row, i) => (
                 <tr key={i} className="hover:bg-gray-800/50">
-                  {fields.map((field, j) => (
-                    <td 
-                      key={j} 
-                      className={`p-2 text-xs text-gray-300 whitespace-nowrap border-b border-gray-700/50 first:pl-4 ${
-                        editMode ? 'cursor-pointer select-none' : ''
-                      } ${
-                        selectedCells.has(`${i}-${j}`) ? 'bg-blue-500/20' : ''
-                      }`}
-                      onClick={() => handleCellClick(i, j)}
-                    >
-                      {row[field.name]?.toString() ?? 'NULL'}
-                    </td>
-                  ))}
+                  {fields.map((field, j) => {
+                    const cellValue = row[field.name]?.toString() ?? 'NULL';
+                    const isLong = cellValue.length > 40;
+                    return (
+                      <td 
+                        key={j} 
+                        className={`p-2 text-xs text-gray-300 whitespace-nowrap border-b border-gray-700/50 first:pl-4 ${
+                          editMode ? 'cursor-pointer select-none' : ''
+                        } ${
+                          selectedCells.has(`${i}-${j}`) ? 'bg-blue-500/20' : ''
+                        }`}
+                        onClick={() => {
+                          handleCellClick(i, j);
+                          if (!editMode && isLong) setModalValue(cellValue);
+                        }}
+                        style={isLong ? { cursor: 'pointer', maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } : {}}
+                        title={isLong ? 'Click to view full value' : undefined}
+                      >
+                        {isLong ? truncateValue(cellValue) : cellValue}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {modalValue && (
+          <CellValueModal value={modalValue} onClose={() => setModalValue(null)} />
+        )}
       </div>
     </div>
   );
