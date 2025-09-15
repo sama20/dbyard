@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { usePersistentState } from './usePersistentState';
 
 export interface Settings {
   defaultLimit: number;
@@ -15,14 +15,6 @@ const DEFAULT_SETTINGS: Settings = {
 };
 
 export function useSettings() {
-  const [settings, setSettings] = useState<Settings>(() => {
-    const saved = localStorage.getItem('db_settings');
-    return saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-  });
-
-  useEffect(() => {
-    localStorage.setItem('db_settings', JSON.stringify(settings));
-  }, [settings]);
-
+  const [settings, setSettings] = usePersistentState<Settings>('db_settings', DEFAULT_SETTINGS);
   return { settings, setSettings };
 }
