@@ -2,14 +2,110 @@ import express from 'express';
 import cors from 'cors';
 import mysql from 'mysql2/promise';
 import { Client } from 'ssh2';
-import net from 'net';
+import axios from 'axios';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
 
 const app = express();
+const port = 3001;
+
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3001;
+const GITHUB_CLIENT_ID = process.env.VITE_GITHUB_CLIENT_ID;
+const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 
+if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+  console.error("GitHub client ID or secret not found in .env.local. Please check your environment variables.");
+  process.exit(1);
+}
+
+// Proxy for getting device code
+app.post('/api/github/device/code', async (req, res) => {
+  try {
+    const response = await axios.post('https://github.com/login/device/code', {
+      client_id: GITHUB_CLIENT_ID,
+      scope: req.body.scope,
+    }, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error proxying device code request:', error.response ? error.response.data : error.message);
+    res.status(error.response?.status || 500).json({ error: 'Failed to get device code from GitHub' });
+  }
+});
+
+// Proxy for getting access token
+app.post('/api/github/login/oauth/access_token', async (req, res) => {
+  try {
+    const response = await axios.post('https://github.com/login/oauth/access_token', {
+      client_id: GITHUB_CLIENT_ID,
+      client_secret: GITHUB_CLIENT_SECRET,
+      device_code: req.body.device_code,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+    }, {
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error proxying access token request:', error.response ? error.response.data : error.message);
+    res.status(error.response?.status || 500).json({ error: 'Failed to get access token' });
+  }
+});
+
+// Proxy for getting user data
+app.get('/api/github/user', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Authorization header missing' });
+    }
+    const response = await axios.get('https://api.github.com/user', {
+      headers: {
+        'Authorization': authHeader,
+        'Accept': 'application/json'
+      }
+    });
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error proxying user request:', error.response ? error.response.data : error.message);
+    res.status(error.response?.status || 500).json({ error: 'Failed to fetch user data' });
+  }
+});
+
+// Proxy for checking Copilot status
+app.get('/api/copilot_internal/token', async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ error: 'Authorization header missing' });
+      }
+      const response = await axios.get('https://api.github.com/copilot_internal/token', {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      });
+      res.json(response.data);
+    } catch (error) {
+      // A 401 here is expected if the user doesn't have Copilot, so we can return a specific message.
+      if (error.response && error.response.status === 401) {
+        return res.status(401).json({ error: 'User does not have a Copilot subscription or token is invalid.' });
+      }
+      console.error('Error proxying Copilot token request:', error.response ? error.response.data : error.message);
+      res.status(error.response?.status || 500).json({ error: 'Failed to check Copilot status' });
+    }
+  });
+
+// MySQL Database functionality
 const createSSHTunnel = async (sshConfig, dbConfig) => {
   return new Promise((resolve, reject) => {
     const ssh = new Client();
@@ -73,41 +169,41 @@ const createConnectionConfig = ({ host, port, username, password, database }) =>
 
 app.post('/api/test-ssh', async (req, res) => {
   const sshConfig = req.body;
-  
+
   try {
     const ssh = new Client();
-    
+
     await new Promise((resolve, reject) => {
       ssh.on('ready', () => {
         ssh.end();
         resolve();
       });
-      
+
       ssh.on('error', (err) => {
         reject(err);
       });
-      
+
       const config = {
         host: sshConfig.host,
         port: parseInt(sshConfig.port),
         username: sshConfig.username
       };
-      
+
       if (sshConfig.privateKey) {
         config.privateKey = sshConfig.privateKey;
       } else {
         config.password = sshConfig.password;
       }
-      
+
       ssh.connect(config);
     });
-    
+
     res.json({ success: true, message: 'SSH connection successful' });
   } catch (error) {
     console.error('SSH connection error:', error);
     res.json({ 
-      success: false, 
-      message: error.message || 'SSH connection failed' 
+      success: false,
+      message: error.message || 'SSH connection failed'
     });
   }
 });
@@ -116,7 +212,7 @@ app.post('/api/execute', async (req, res) => {
   const { host, port, username, password, database, query, sshConfig } = req.body;
   let connection;
   let sshClient;
-  
+
   try {
     const dbConfig = createConnectionConfig({
       host, port, username, password, database
@@ -135,7 +231,7 @@ app.post('/api/execute', async (req, res) => {
     const endTime = process.hrtime(startTime);
     const executionTime = endTime[0] * 1000 + endTime[1] / 1000000;
 
-    const plainRows = Array.isArray(rows) 
+    const plainRows = Array.isArray(rows)
       ? rows.map(row => Object.assign({}, row))
       : [];
 
@@ -154,7 +250,7 @@ app.post('/api/execute', async (req, res) => {
     });
   } catch (error) {
     console.error('Query execution error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message,
       rows: [],
       fields: [],
@@ -171,7 +267,7 @@ app.post('/api/test-connection', async (req, res) => {
   const { host, port, username, password, database, sshConfig } = req.body;
   let connection;
   let sshClient;
-  
+
   try {
     const dbConfig = createConnectionConfig({
       host, port, username, password, database
@@ -184,13 +280,13 @@ app.post('/api/test-connection', async (req, res) => {
     } else {
       connection = await mysql.createConnection(dbConfig);
     }
-    
+
     await connection.connect();
     res.json({ success: true, message: 'Connection successful!' });
   } catch (error) {
     console.error('Connection error:', error);
     let errorMessage = 'Connection failed';
-    
+
     if (error.code === 'ECONNREFUSED') {
       errorMessage = `Could not connect to MySQL at ${host}:${port}. Please verify that MySQL is running and the port is correct.`;
     } else if (error.code === 'ER_ACCESS_DENIED_ERROR') {
@@ -198,9 +294,9 @@ app.post('/api/test-connection', async (req, res) => {
     } else if (error.code === 'ER_BAD_DB_ERROR') {
       errorMessage = `Database '${database}' does not exist.`;
     }
-    
+
     res.json({ 
-      success: false, 
+      success: false,
       message: errorMessage,
       code: error.code
     });
@@ -214,7 +310,7 @@ app.post('/api/databases', async (req, res) => {
   const { host, port, username, password, sshConfig } = req.body;
   let connection;
   let sshClient;
-  
+
   try {
     const dbConfig = createConnectionConfig({
       host, port, username, password, database: undefined
@@ -232,10 +328,10 @@ app.post('/api/databases', async (req, res) => {
     res.json(rows.map(row => row.Database));
   } catch (error) {
     console.error('Database list error:', error);
-    res.status(500).json({ 
-      error: error.code === 'ECONNREFUSED' 
-        ? `Could not connect to MySQL at ${host}:${port}` 
-        : error.message 
+    res.status(500).json({
+      error: error.code === 'ECONNREFUSED'
+        ? `Could not connect to MySQL at ${host}:${port}`
+        : error.message
     });
   } finally {
     if (connection) await connection.end();
@@ -247,7 +343,7 @@ app.post('/api/tables', async (req, res) => {
   const { host, port, username, password, database, sshConfig } = req.body;
   let connection;
   let sshClient;
-  
+
   try {
     const dbConfig = createConnectionConfig({
       host, port, username, password, database
@@ -265,10 +361,10 @@ app.post('/api/tables', async (req, res) => {
     res.json(rows.map(row => Object.values(row)[0]));
   } catch (error) {
     console.error('Table list error:', error);
-    res.status(500).json({ 
-      error: error.code === 'ECONNREFUSED' 
-        ? `Could not connect to MySQL at ${host}:${port}` 
-        : error.message 
+    res.status(500).json({
+      error: error.code === 'ECONNREFUSED'
+        ? `Could not connect to MySQL at ${host}:${port}`
+        : error.message
     });
   } finally {
     if (connection) await connection.end();
@@ -305,6 +401,6 @@ const formatFieldType = (field) => {
   return typeMap[field.type] || 'UNKNOWN';
 };
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Backend proxy server listening at http://localhost:${port}`);
 });
