@@ -388,15 +388,23 @@ const createSSHTunnel = async (sshConfig, dbConfig) => {
   });
 };
 
-const createConnectionConfig = ({ host, port, username, password, database }) => ({
-  host,
-  port: parseInt(port),
-  user: username,
-  password: password || undefined,
-  database,
-  connectTimeout: 10000,
-  waitForConnections: true,
-});
+const createConnectionConfig = ({ host, port, username, password, database }) => {
+  const config = {
+    host,
+    port: parseInt(port),
+    user: username,
+    password: password || undefined,
+    connectTimeout: 10000,
+    waitForConnections: true,
+  };
+  
+  // Only add database if it's provided and not empty
+  if (database && database.trim() !== '') {
+    config.database = database;
+  }
+  
+  return config;
+};
 
 app.post('/api/test-ssh', async (req, res) => {
   const sshConfig = req.body;
@@ -524,6 +532,8 @@ app.post('/api/test-connection', async (req, res) => {
       errorMessage = 'Access denied. Please check your username and password.';
     } else if (error.code === 'ER_BAD_DB_ERROR') {
       errorMessage = `Database '${database}' does not exist.`;
+    } else {
+      errorMessage = error.message || 'Connection failed';
     }
 
     res.json({ 

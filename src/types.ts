@@ -14,7 +14,7 @@ export interface ConnectionData {
   port: string;
   username: string;
   password: string;
-  database: string;
+  database?: string;
   sshConfig?: {
     host: string;
     port: string;

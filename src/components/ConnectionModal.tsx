@@ -24,7 +24,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   const [formData, setFormData] = useState<ConnectionData & { useSSH: boolean; sshConfig?: SSHConfig }>({
     name: '',
     host: 'localhost',
-    port: '3306',
+    port: '3307',
     username: 'root',
     password: '',
     database: '',
@@ -67,9 +67,14 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
         port: formData.port,
         username: formData.username,
         password: formData.password,
-        database: formData.database,
         sshConfig: formData.useSSH ? formData.sshConfig : undefined
       };
+      
+      // Only include database if it's not empty
+      if (formData.database && formData.database.trim() !== '') {
+        connectionData.database = formData.database;
+      }
+      
       onSave(connectionData);
     }
   };
@@ -120,7 +125,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
   if (!isOpen) return null;
 
   const isFormValid = formData.name && formData.host && formData.port && 
-                     formData.username && formData.database && 
+                     formData.username && 
                      (!formData.useSSH || (
                        formData.sshConfig?.host && 
                        formData.sshConfig?.port && 
@@ -278,7 +283,7 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
                 value={formData.port}
                 onChange={e => setFormData(prev => ({ ...prev, port: e.target.value }))}
                 className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="3306"
+                placeholder="3307"
                 required
               />
             </div>
@@ -309,13 +314,15 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Database Name</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Database Name <span className="text-gray-400">(optional)</span>
+            </label>
             <input
               type="text"
               value={formData.database}
               onChange={e => setFormData(prev => ({ ...prev, database: e.target.value }))}
               className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              placeholder="Leave empty to connect without selecting a database"
             />
           </div>
 
