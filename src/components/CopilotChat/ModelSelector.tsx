@@ -63,8 +63,22 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                         <Check size={14} className="text-green-400" />
                       )}
                       {!model.isAvailable && (
-                        <span className="px-2 py-0.5 bg-yellow-600 text-yellow-100 text-xs rounded">
-                          Premium
+                        <span className="px-2 py-0.5 text-xs rounded">
+                          {model.requiresSubscription === 'individual' && (
+                            <span className="bg-blue-600 text-blue-100">Copilot Required</span>
+                          )}
+                          {model.requiresSubscription === 'premium' && (
+                            <span className="bg-purple-600 text-purple-100">Premium</span>
+                          )}
+                          {model.requiresSubscription === 'business' && (
+                            <span className="bg-orange-600 text-orange-100">Business</span>
+                          )}
+                          {model.id === 'copilot' && !model.requiresSubscription && (
+                            <span className="bg-blue-600 text-blue-100">Connect GitHub</span>
+                          )}
+                          {!model.requiresSubscription && model.id !== 'copilot' && (
+                            <span className="bg-purple-600 text-purple-100">Premium Only</span>
+                          )}
                         </span>
                       )}
                     </div>

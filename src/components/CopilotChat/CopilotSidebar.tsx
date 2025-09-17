@@ -57,7 +57,9 @@ const CopilotSidebar: React.FC<CopilotSidebarProps> = ({
     getRemainingTokens,
     isUsageLimitReached,
     getSelectedModel,
-    getDaysUntilReset
+    getDaysUntilReset,
+    realUsageData,
+    isConnectedToGitHub
   } = useAIModels();
 
   const [messages, setMessages] = useState<Message[]>([
@@ -318,6 +320,8 @@ LIMIT 10;`;
             remainingTokens={getRemainingTokens()}
             daysUntilReset={getDaysUntilReset()}
             isLimitReached={isUsageLimitReached()}
+            isConnectedToGitHub={isConnectedToGitHub}
+            realUsageData={realUsageData}
           />
         </div>
       )}

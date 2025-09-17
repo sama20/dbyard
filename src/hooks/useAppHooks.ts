@@ -6,11 +6,13 @@ import { useConnections } from './useConnections';
 import { useQueryTabs } from './useQueryTabs';
 import { useQueryExecution } from './useQueryExecution';
 import { useDataUpdater } from './useDataUpdater';
+import { useAIModels } from './useAIModels';
 import type { Connection, QueryTab } from '../types';
 
 export const useAppHooks = () => {
   const { settings } = useSettings();
   const { connections } = useConnections();
+  const { updateUsage } = useAIModels();
   const {
     tabsState,
     createNewTab,
@@ -70,10 +72,14 @@ export const useAppHooks = () => {
         activeTab.query
       );
       updateTabResult(result);
+      
+      // Track usage for manual queries (simulate token usage based on query length)
+      const estimatedTokens = Math.max(Math.floor(activeTab.query.length / 4), 10);
+      updateUsage(estimatedTokens);
     } catch (error) {
       updateTabResult(undefined, error instanceof Error ? error.message : 'Query failed');
     }
-  }, [activeConnection, activeTab.database, activeTab.query, executeQueryWithConnection, updateTabResult]);
+  }, [activeConnection, activeTab.database, activeTab.query, executeQueryWithConnection, updateTabResult, updateUsage]);
 
   const handleUpdateData = useCallback(async (changes: Array<Record<string, any>>) => {
     if (!activeConnection || !activeTab.database || !activeTab.result?.fields) return;
