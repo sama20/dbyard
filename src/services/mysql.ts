@@ -1,4 +1,10 @@
 import type { ConnectionData } from '../types';
+import * as mysqlElectron from './mysql-electron';
+
+// Check if we're running in Electron
+const isElectron = () => {
+  return typeof window !== 'undefined' && window.electronAPI;
+};
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -10,6 +16,11 @@ interface QueryResult {
 }
 
 export async function testSSHConnection(sshConfig: ConnectionData['sshConfig']): Promise<{ success: boolean; message: string }> {
+  if (isElectron()) {
+    // SSH testing is handled within testConnection in Electron
+    return { success: true, message: 'SSH will be tested with database connection' };
+  }
+  
   try {
     const response = await fetch(`${API_URL}/test-ssh`, {
       method: 'POST',
@@ -27,6 +38,10 @@ export async function testSSHConnection(sshConfig: ConnectionData['sshConfig']):
 }
 
 export async function testConnection(config: ConnectionData): Promise<{ success: boolean; message: string }> {
+  if (isElectron()) {
+    return mysqlElectron.testConnection(config);
+  }
+  
   try {
     const response = await fetch(`${API_URL}/test-connection`, {
       method: 'POST',
@@ -44,6 +59,10 @@ export async function testConnection(config: ConnectionData): Promise<{ success:
 }
 
 export async function fetchDatabases(config: ConnectionData): Promise<string[]> {
+  if (isElectron()) {
+    return mysqlElectron.fetchDatabases(config);
+  }
+  
   const response = await fetch(`${API_URL}/databases`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -58,6 +77,10 @@ export async function fetchDatabases(config: ConnectionData): Promise<string[]> 
 }
 
 export async function fetchTables(config: ConnectionData): Promise<string[]> {
+  if (isElectron()) {
+    return mysqlElectron.fetchTables(config);
+  }
+  
   const response = await fetch(`${API_URL}/tables`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -72,6 +95,10 @@ export async function fetchTables(config: ConnectionData): Promise<string[]> {
 }
 
 export async function executeQuery(config: ConnectionData, query: string): Promise<QueryResult> {
+  if (isElectron()) {
+    return mysqlElectron.executeQuery(query, config);
+  }
+  
   try {
     const response = await fetch(`${API_URL}/execute`, {
       method: 'POST',

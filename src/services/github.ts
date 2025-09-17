@@ -1,5 +1,10 @@
 // src/services/github.ts
 import { CopilotToken } from './copilot';
+
+// Check if we're running in Electron
+const isElectron = () => {
+  return typeof window !== 'undefined' && window.electronAPI;
+};
 export interface GitHubUser {
   login: string;
   name: string;
@@ -40,6 +45,63 @@ class GitHubService {
 
   async signIn(): Promise<void> {
     try {
+      if (isElectron()) {
+        // Use Electron API for GitHub authentication
+        const deviceCodeData = await window.electronAPI.githubRequest('/device/code', {
+          method: 'POST',
+          body: { scope: 'read:user' }
+        });
+
+        const { device_code, user_code, verification_uri, interval } = deviceCodeData;
+
+        // Prompt user to authorize
+        alert(`Please go to ${verification_uri} and enter the code: ${user_code}`);
+
+        // Poll for the access token
+        let tokenData;
+        while (true) {
+          await new Promise(resolve => setTimeout(resolve, interval * 1000));
+
+          tokenData = await window.electronAPI.githubRequest('/login/oauth/access_token', {
+            method: 'POST',
+            body: { device_code: device_code }
+          });
+
+          if (tokenData.error) {
+            if (tokenData.error === 'authorization_pending') {
+              continue; // Poll again
+            }
+            throw new Error(tokenData.error_description || 'Failed to get access token');
+          }
+          break; // Success
+        }
+
+        const { access_token } = tokenData;
+
+        // Get user info with the new token
+        const userData = await window.electronAPI.githubRequest('/user', {
+          headers: { 'Authorization': `token ${access_token}` }
+        });
+
+        const user: GitHubUser = {
+          login: userData.login,
+          name: userData.name || userData.login,
+          avatar_url: userData.avatar_url,
+          email: userData.email || ''
+        };
+
+        const authState: GitHubAuthState = {
+          isConnected: true,
+          user,
+          accessToken: access_token
+        };
+
+        this.saveAuthState(authState);
+        window.dispatchEvent(new CustomEvent('github-auth-success'));
+        return;
+      }
+
+      // Fallback to server proxy for web version
       // 1. Get device code from our proxy
       const deviceCodeResponse = await fetch(`${this.backendUrl}/api/github/device/code`, {
         method: 'POST',

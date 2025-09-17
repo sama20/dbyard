@@ -1,14 +1,23 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "dbyard",
+  "productName": "DByard",
+  "description": "A powerful MySQL database management tool",
+  "version": "1.0.0",
+  "author": "Your Name",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"node server/index.js\"",
+    "dev": "vite",
+    "dev:electron": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
+    "build:electron": "npm run build && npx tsc electron/main.ts --outDir dist-electron --moduleResolution node --target es2022 --module commonjs --esModuleInterop --skipLibCheck && npx tsc electron/preload.ts --outDir dist-electron --moduleResolution node --target es2022 --module commonjs --esModuleInterop --skipLibCheck && mv dist-electron/main.js dist-electron/main.cjs && mv dist-electron/preload.js dist-electron/preload.cjs",
+    "electron": "electron .",
+    "start": "npm run build:electron && electron .",
+    "dist": "npm run build:electron && electron-builder",
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "main": "dist-electron/main.cjs",
   "dependencies": {
     "@codemirror/autocomplete": "^6.15.0",
     "@codemirror/lang-sql": "^6.5.5",
@@ -36,9 +45,11 @@
     "@types/node": "^24.5.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@types/ssh2": "^1.15.5",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "concurrently": "^8.2.2",
+    "electron": "^38.1.1",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
@@ -47,6 +58,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "wait-on": "^9.0.0"
   }
 }

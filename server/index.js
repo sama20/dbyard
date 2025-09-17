@@ -512,7 +512,8 @@ app.post('/api/test-connection', async (req, res) => {
       host, port, username, password, database
     });
 
-    if (sshConfig) {
+    // Only use SSH if sshConfig is provided AND has required fields
+    if (sshConfig && sshConfig.host && sshConfig.username) {
       const tunnel = await createSSHTunnel(sshConfig, dbConfig);
       connection = await mysql.createConnection(tunnel.config);
       sshClient = tunnel.ssh;

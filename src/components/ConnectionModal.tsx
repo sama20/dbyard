@@ -98,7 +98,17 @@ export default function ConnectionModal({ isOpen, onClose, onSave }: ConnectionM
       }
 
       // Then test database connection
-      const result = await testConnection(formData);
+      const testData = {
+        name: formData.name,
+        host: formData.host,
+        port: formData.port,
+        username: formData.username,
+        password: formData.password,
+        database: formData.database,
+        sshConfig: formData.useSSH ? formData.sshConfig : undefined
+      };
+      
+      const result = await testConnection(testData);
       setTestStatus({
         tested: true,
         success: result.success,
